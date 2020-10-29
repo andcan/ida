@@ -1,0 +1,4 @@
+**/.hypotesys/
+**/.pytest_cache
+
+venv/

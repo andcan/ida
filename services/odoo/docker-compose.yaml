@@ -1,0 +1,30 @@
+version: '3'
+services:
+  postgres:
+    image: 'postgres:10'
+    environment:
+      POSTGRES_PASSWORD: 'postgres'
+    volumes:
+      - 'postgresql_data:/var/lib/postgresql/data'
+      - '${PWD}/00-init.sql:/docker-entrypoint-initdb.d/00-init.sql'
+      - '${PWD}/01-init-dump.sh:/docker-entrypoint-initdb.d/01-init-dump.sh'
+      - '${PWD}/01-dump.sql:/01-dump.sql'
+    ports:
+    - '5432:5432'
+  odoo:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      args:
+        GITHUB_ACCESS_TOKEN: ${GITHUB_ACCESS_TOKEN}
+    environment:
+      ODOO_DB_HOST: postgres
+      ODOO_DB_USER: 'openerp'
+      ODOO_DB_PASSWORD: 'S3GT1mbC0XdqQONOzO4HP8XdUXuy0jwx-NMZuBS6QUE79E7AoYMPLnDpOCuAOHxy'
+    ports:
+      - '8810:8810'
+    depends_on:
+      - postgres
+volumes:
+  postgresql_data:
+    driver: local

@@ -1,0 +1,11 @@
+template:
+  chiave:
+    - nome: nome
+    - nome: cognome
+  campi:
+    - nome: nome
+      nomeDB: nome
+    - nome: cognome
+      nomeDB: cognome
+    - nome: indirizzo
+      nomeDB: indirizzo
