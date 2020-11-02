@@ -1,0 +1,135 @@
+version: '3'
+
+services:
+  app:
+    build:
+      context: ..
+      dockerfile: .devcontainer/Dockerfile
+    volumes:
+      - ..:/workspace:cached
+    command: sleep infinity
+
+    # Runs app on the same network as the database container, allows "forwardPorts" in devcontainer.json function.
+    # network_mode: service:db
+
+    user: dev
+
+    # Use "forwardPorts" in **devcontainer.json** to forward an app port locally.
+    # (Adding the "ports" property to this file will not forward from a Codespace.)
+
+  janusgraph:
+    image: janusgraph/janusgraph:0.5.2
+    container_name: jce-janusgraph
+    depends_on:
+      - elasticsearch
+      - cassandra
+    ports:
+      - "8182:8182"
+    networks:
+      - jce-network
+    volumes:
+      - source: ./janus/gremlin-server.yaml
+        target: /etc/opt/janusgraph/gremlin-server.yaml
+        read_only: true
+        type: bind
+      - source: ./janus/janusgraph.properties
+        target: /etc/opt/janusgraph/janusgraph.properties
+        read_only: true
+        type: bind
+# TODO: check why not becoming healthy, took from https://github.com/JanusGraph/janusgraph-docker/blob/master/docker-compose-cql-es.yml (0.5.2)
+#    healthcheck:
+#      test: ["CMD", "bin/gremlin.sh", "-e", "scripts/remote-connect.groovy"]
+#      interval: 10s
+#      timeout: 30s
+#      retries: 3
+    deploy:
+      resources:
+        limits:
+          cpus: '1'
+          memory: '0.5G'
+  cassandra:
+    image: cassandra:3
+    container_name: jce-cassandra
+    ports:
+      - "9042:9042"
+    networks:
+      - jce-network
+    environment:
+      HEAP_NEWSIZE: 256M
+      MAX_HEAP_SIZE: 512M
+    healthcheck:
+      test: [ "CMD-SHELL", "[ $$(nodetool statusgossip) = running ]" ]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+    volumes:
+      - cassandra:/var/lib/cassandra
+      - target: /etc/cassandra/cassandra.yaml
+        source: ./janus/cassandra.yaml
+        type: bind
+    deploy:
+      resources:
+        limits:
+          cpus: '1'
+          memory: '1G'
+  elasticsearch:
+    image: docker.elastic.co/elasticsearch/elasticsearch:6.6.0
+    container_name: jce-elastic
+    environment:
+      - "ES_JAVA_OPTS=-Xms512m -Xmx512m"
+      - "http.host=0.0.0.0"
+      - "network.host=0.0.0.0"
+      - "transport.host=127.0.0.1"
+      - "cluster.name=docker-cluster"
+      - "xpack.security.enabled=false"
+      - "discovery.zen.minimum_master_nodes=1"
+    ports:
+      - "9200:9200"
+    networks:
+      - jce-network
+    volumes:
+      - elasticsearch:/usr/share/elasticsearch/data
+    deploy:
+      resources:
+        limits:
+          cpus: '1'
+          memory: '1G'
+  odoo:
+    build:
+      context: ..
+      dockerfile: .devcontainer/odoo.Dockerfile
+      args:
+        GITHUB_USER: ${GITHUB_USER}
+        GITHUB_PASSWORD: ${GITHUB_PASSWORD}
+    environment:
+      ODOO_DB_HOST: postgres
+      ODOO_DB_USER: 'openerp'
+      ODOO_DB_PASSWORD: '${ODOO_DB_PASSWORD}'
+    ports:
+      - '8810:8810'
+    depends_on:
+      - postgres
+  postgres:
+    image: 'postgres:10'
+    environment:
+      POSTGRES_PASSWORD: 'postgres'
+    volumes:
+      - 'postgresql_data:/var/lib/postgresql/data'
+      - target: /docker-entrypoint-initdb.d/00-init.sql
+        source: ./odoo/00-init.sql
+        type: bind
+      - target: /docker-entrypoint-initdb.d/01-init-dump.sh
+        source: ./odoo/01-init-dump.sh
+        type: bind
+      - target: /docker-entrypoint-initdb.d/01-dump.sql
+        source: ./odoo/01-dump.sql
+        type: bind 
+    ports:
+    - '5432:5432'
+networks:
+  jce-network:
+volumes:
+  janusgraph-default-data:
+  cassandra:
+  elasticsearch:
+  postgresql_data:

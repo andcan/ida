@@ -1,0 +1,8 @@
+{
+    "python.pythonPath": "/home/dev/venvs/venv/bin/python",
+    "python.venvPath": "/home/dev/venvs",
+    "python.linting.ignorePatterns": [
+        ".vscode/*.py",
+        "/home/dev/venvs/venv/**/site-packages/**/*.py"
+    ]
+}
