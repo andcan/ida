@@ -7,7 +7,7 @@
 * Adjust `docker-compose.yaml` to your machine specs.   
   `services.{janusgraph|cassandra|elasticsearch}.deploy.resources.limits` contains limits for each container.  
   Notes: `cpus: 1` is one core (0.5 is half core, floats allowed) and memory can be expressed like `1G` or `1024M`.  
-  Special attention for cassandra: `HEAP_NEWSIZE` and `MAX_HEAP_SIZE` must be adjusted and are equivalent to JAVA_OPTS `-Xms` `-Xmx`
+  Special attention for cassandra: `HEAP_NEWSIZE` and `MAX_HEAP_SIZE` must be adjusted and are equivalent to JAVA_OPTS `-Xms` `-Xmx`. Java heap should be half of available memory for container (limit: 1G -> MAX_HEAP_SIZE: 512M)
 * Start docker daemon  
   Linux:
   ```shell script

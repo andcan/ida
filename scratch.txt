@@ -1,3 +1,118 @@
 g.V().hasLabel('<label>').properties().key().dedup().toList()
 
 g.V().group().by(label).by(properties().group().by(key).by(value().map{it.get().getClass()}))
+
+# upsert vertex + upsert properties
+g.V().
+    hasLabel('<label>').
+    has('<id>', '<value>').
+    fold().
+    coalesce(
+        unfold(),
+        addV('<label>').
+            property('<id>', '<value>')
+    ).
+    property('<overwrite>', '<value').
+    property('<no_overwrite>', 
+        choose(
+            has('<no_overwrite>'),
+            values('<no_overwrite>'),
+            constant('<value>')
+        )
+    )
+
+# upsert edge
+g.addV('Person').property('identifier', 0).property('firstName', 'Name 0').property('lastName', 'Surname 0')
+g.addV('Person').property('identifier', 1).property('firstName', 'Name 1').property('lastName', 'Surname 1')
+g.addV('Person').property('identifier', 2).property('firstName', 'Name 2').property('lastName', 'Surname 2')
+g.addV('Person').property('identifier', 3).property('firstName', 'Name 3').property('lastName', 'Surname 3')
+g.addV('Person').property('identifier', 4).property('firstName', 'Name 4').property('lastName', 'Surname 4')
+g.addV('Person').property('identifier', 5).property('firstName', 'Name 5').property('lastName', 'Surname 5')
+g.addV('Person').property('identifier', 6).property('firstName', 'Name 6').property('lastName', 'Surname 6')
+g.addV('Person').property('identifier', 7).property('firstName', 'Name 7').property('lastName', 'Surname 7')
+g.addV('Person').property('identifier', 8).property('firstName', 'Name 8').property('lastName', 'Surname 8')
+g.addV('Person').property('identifier', 9).property('firstName', 'Name 9').property('lastName', 'Surname 9')
+g.addV('CreditCard').property('number', 0).property('bankName', 'Bank 0')
+g.addV('CreditCard').property('number', 1).property('bankName', 'Bank 1')
+g.addV('CreditCard').property('number', 2).property('bankName', 'Bank 2')
+g.addV('CreditCard').property('number', 3).property('bankName', 'Bank 3')
+g.addV('CreditCard').property('number', 4).property('bankName', 'Bank 4')
+g.addV('CreditCard').property('number', 5).property('bankName', 'Bank 5')
+g.addV('CreditCard').property('number', 6).property('bankName', 'Bank 6')
+g.addV('CreditCard').property('number', 7).property('bankName', 'Bank 7')
+g.addV('CreditCard').property('number', 8).property('bankName', 'Bank 8')
+g.addV('CreditCard').property('number', 9).property('bankName', 'Bank 9')
+
+g.
+    V().
+        hasLabel('Person').
+        has('identifier', 1).
+        fold().
+        coalesce(
+            unfold(),
+            addV('Person').
+                property('identifier', 1)
+        ).
+        property(
+            'firstName',
+            choose(
+                has('firstName'),
+                values('firstName'),
+                constant('asd')
+            )
+        ).
+        property(
+            'lastName',
+            choose(
+                has('lastName'),
+                values('lastName'),
+                constant('sdf')
+            )
+        ).
+        aggregate('v').
+    V().
+        hasLabel('CreditCard').
+        has('number', 1).
+        fold().
+        coalesce(
+            unfold(),
+            addV('CreditCard').
+                property('number', 1)
+        ).
+        property(
+            'expires',
+            choose(
+                has('expires'),
+                values('expires'),
+                constant('2022-12')
+            )
+        ).
+        aggregate('v1').
+        coalesce(
+            select('v1').unfold().inE('owner').where(outV().where(within('v'))),
+            select('v').unfold().addE('owner').to(select('v1').unfold())
+        ).
+    V().
+        hasLabel('Bank').
+        has('identifier', 1).
+        fold().
+        coalesce(
+            unfold(),
+            addV('Bank').
+                property('identifier', 1)
+        ).
+        property(
+            'name',
+            choose(
+                has('name'),
+                values('name'),
+                constant('Bank 1')
+            )
+        ).
+        aggregate('v2').
+        coalesce(
+            select('v2').unfold().inE('emitted_from').where(outV().where(within('v1'))),
+            select('v1').unfold().addE('emitted_from').to(select('v2').unfold())
+        )
+
+    

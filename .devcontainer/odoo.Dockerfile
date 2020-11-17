@@ -80,7 +80,7 @@ RUN set -x; \
     && git clone https://bitbucket.org/creativiquadrati/l10n_it_fiscalcode_10.git /opt/odoo/extra_addons/l10n_it_fiscalcode \
     && git clone https://${GITHUB_USER}:${GITHUB_PASSWORD}@github.com/ssiccardi/giustizia.git /opt/odoo/extra_addons/giustizia
 
-ADD .devcontainer/odoo/giustizia.tar.gz /var/lib/odoo/filestore/giustizia
+ADD --chown=odoo:odoo .devcontainer/odoo/giustizia.tar.gz /var/lib/odoo/filestore/giustizia
 
 VOLUME /var/lib/odoo
 

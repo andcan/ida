@@ -38,6 +38,8 @@ zplug "zsh-users/zsh-history-substring-search"
 zplug "zsh-users/zsh-completions"
 zplug "junegunn/fzf"
 zplug "themes/robbyrussell", from:oh-my-zsh, as:theme   # Theme
+# zplug "plugins/docker", from:oh-my-zsh
+# zplug "plugins/docker-compose", from:oh-my-zsh
 
 # zplug - install/load new plugins when zsh is started or reloaded
 if ! zplug check --verbose; then

@@ -1,41 +1,42 @@
 {
 	"name": "Investigative Data Acquisition",
-	"dockerComposeFile": "docker-compose.yml",
+	"dockerComposeFile": "docker-compose.yaml",
 	"service": "app",
 	"workspaceFolder": "/workspace",
-
 	// Set *default* container specific settings.json values on container create.
-	"settings": { 
+	"settings": {
+		"editor.formatOnSave": true,
+		"editor.formatOnType": true,
 		"explorer.confirmDelete": false,
-		"python.analysis.typeCheckingMode": "strict",
+		"python.analysis.typeCheckingMode": "basic",
 		"python.analysis.useLibraryCodeForTypes": true,
+		"python.formatting.provider": "autopep8",
 		"python.languageServer": "Pylance",
 		"python.linting.enabled": true,
 		"python.linting.ignorePatterns": [
 			".vscode/*.py",
-			"/**/site-packages/**/*.py"
+			"/**/site-packages/**/*.py",
 		],
-		"python.linting.pylintEnabled": true,
-		"python.pythonPath": "/home/dev/venvs/venv/bin/python",
+		"python.pythonPath": "/home/dev/.virtualenvs/venv/bin/python",
 		"python.testing.pytestEnabled": true,
-		"python.venvPath": "/home/dev/venvss",
+		"python.venvPath": "/home/dev/.virtualenvs/venv",
 		"terminal.integrated.shell.linux": "/bin/zsh",
 		"workbench.tree.indent": 24,
 	},
-
 	// Add the IDs of extensions you want installed when the container is created.
 	"extensions": [
 		"ms-python.python",
 		"littlefoxteam.vscode-python-test-adapter",
 		"ms-python.vscode-pylance",
-		"visualstudioexptteam.vscodeintellicode"
+		"visualstudioexptteam.vscodeintellicode",
+		"tabnine.tabnine-vscode",
+		"ms-azuretools.vscode-docker"
 	],
-
 	// Use 'forwardPorts' to make a list of ports inside the container available locally.
-	"forwardPorts": [5432],
-
+	"forwardPorts": [
+		5432
+	],
 	// Use 'postCreateCommand' to run commands after the container is created.
-	"postCreateCommand": "source $HOME/venvs/venv/bin/activate && pip install -r /workspace/requirements.txt",
-
+	"postCreateCommand": "source /home/dev/.virtualenvs/venv/bin/activate && pip install -r /workspace/requirements.txt",
 	"remoteUser": "dev"
 }

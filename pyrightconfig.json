@@ -1,0 +1,5 @@
+{
+    "reportMissingTypeStubs": true,
+    "reportUntypedClassDecorator": true,
+    "reportUntypedFunctionDecorator": true
+}

@@ -1,25 +1,34 @@
-from typing import Any, Sequence
+from typing import Any, Optional, Sequence
 
 from gremlin_python.driver.client import Client
 
 
 class GraphClient:
-    def __init__(self, client):
-        # type: (Client) -> None
+    def __init__(self, client, inmemory=False):
+        # type: (Client, Optional[bool]) -> None
         self._client = client
+        self._inmemory = inmemory
 
     def create_graph(self, name):
         # type: (str) -> None
-        self.submit_lines([
-            'map = new HashMap<String, Object>();[]',
-            'map.put("storage.backend", "cql");[]',
-            'map.put("storage.hostname", "jce-cassandra");[]',
-            'map.put("index.search.backend", "elasticsearch");[]',
-            'map.put("index.search.hostname", "jce-elastic");[]',
-            'map.put("index.search.elasticsearch.transport-scheme", "http");[]',
-            'map.put("graph.graphname", "{0}");[]'.format(name),
-            'ConfiguredGraphFactory.createConfiguration(new MapConfiguration(map));'
-        ])
+        if self._inmemory:
+            self.submit_lines([
+                'map = new HashMap<String, Object>();[]',
+                'map.put("storage.backend", "inmemory");[]',
+                'map.put("graph.graphname", "{0}");[]'.format(name),
+                'ConfiguredGraphFactory.createConfiguration(new MapConfiguration(map));[]'
+            ])
+        else:
+            self.submit_lines([
+                'map = new HashMap<String, Object>();[]',
+                'map.put("storage.backend", "cql");[]',
+                'map.put("storage.hostname", "jce-cassandra");[]',
+                'map.put("index.search.backend", "elasticsearch");[]',
+                'map.put("index.search.hostname", "jce-elastic");[]',
+                'map.put("index.search.elasticsearch.transport-scheme", "http");[]',
+                'map.put("graph.graphname", "{0}");[]'.format(name),
+                'ConfiguredGraphFactory.createConfiguration(new MapConfiguration(map));[]'
+            ])
 
     def drop_graph(self, name):
         # type: (str) -> None
@@ -35,7 +44,7 @@ class GraphClient:
         # type: (str) -> None
         if isinstance(graph_name, unicode): # type: ignore
             graph_name = str(graph_name)
-        self.submit('g = ConfiguredGraphFactory.open("{0}").traversal();[]').format(graph_name)
+        self.submit('g = ConfiguredGraphFactory.open("{0}").traversal();[]'.format(graph_name))
 
     def submit_one(self, message):
         # type: (str) -> Any
@@ -60,7 +69,9 @@ class GraphClient:
             graph_name = str(graph_name)
         if create:
             self.create_graph(graph_name)
-        self.submit(
-            'GraphOfTheGodsFactory.load(ConfiguredGraphFactory.open("{0}"));[]'.format(graph_name)
-        )
-        self.setup_traversal('graph_name')
+        if self._inmemory:
+            message = 'GraphOfTheGodsFactory.loadWithoutMixedIndex(ConfiguredGraphFactory.open("{0}"), true);[]'
+        else:
+            message = 'GraphOfTheGodsFactory.load(ConfiguredGraphFactory.open("{0}"));[]'
+        self.submit(message.format(graph_name))
+        self.setup_traversal(graph_name)

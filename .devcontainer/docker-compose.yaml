@@ -1,4 +1,4 @@
-version: '3'
+version: '3.2'
 
 services:
   app:
@@ -7,16 +7,11 @@ services:
       dockerfile: .devcontainer/Dockerfile
     volumes:
       - ..:/workspace:cached
+      - /var/run/docker.sock:/var/run/docker-host.sock
     command: sleep infinity
-
-    # Runs app on the same network as the database container, allows "forwardPorts" in devcontainer.json function.
-    # network_mode: service:db
-
     user: dev
-
-    # Use "forwardPorts" in **devcontainer.json** to forward an app port locally.
-    # (Adding the "ports" property to this file will not forward from a Codespace.)
-
+    networks:
+      - jce-network
   janusgraph:
     image: janusgraph/janusgraph:0.5.2
     container_name: jce-janusgraph
@@ -34,6 +29,14 @@ services:
         type: bind
       - source: ./janus/janusgraph.properties
         target: /etc/opt/janusgraph/janusgraph.properties
+        read_only: true
+        type: bind
+      - source: ./janus/init.groovy
+        target: /opt/janusgraph/scripts/init.groovy
+        read_only: true
+        type: bind
+      - source: ./janus/tinkergraph-empty.properties
+        target: /opt/janusgraph/conf/tinkergraph-empty.properties
         read_only: true
         type: bind
 # TODO: check why not becoming healthy, took from https://github.com/JanusGraph/janusgraph-docker/blob/master/docker-compose-cql-es.yml (0.5.2)
@@ -94,38 +97,42 @@ services:
         limits:
           cpus: '1'
           memory: '1G'
-  odoo:
-    build:
-      context: ..
-      dockerfile: .devcontainer/odoo.Dockerfile
-      args:
-        GITHUB_USER: ${GITHUB_USER}
-        GITHUB_PASSWORD: ${GITHUB_PASSWORD}
-    environment:
-      ODOO_DB_HOST: postgres
-      ODOO_DB_USER: 'openerp'
-      ODOO_DB_PASSWORD: '${ODOO_DB_PASSWORD}'
-    ports:
-      - '8810:8810'
-    depends_on:
-      - postgres
-  postgres:
-    image: 'postgres:10'
-    environment:
-      POSTGRES_PASSWORD: 'postgres'
-    volumes:
-      - 'postgresql_data:/var/lib/postgresql/data'
-      - target: /docker-entrypoint-initdb.d/00-init.sql
-        source: ./odoo/00-init.sql
-        type: bind
-      - target: /docker-entrypoint-initdb.d/01-init-dump.sh
-        source: ./odoo/01-init-dump.sh
-        type: bind
-      - target: /docker-entrypoint-initdb.d/01-dump.sql
-        source: ./odoo/01-dump.sql
-        type: bind 
-    ports:
-    - '5432:5432'
+  # odoo:
+  #   build:
+  #     context: ..
+  #     dockerfile: .devcontainer/odoo.Dockerfile
+  #     args:
+  #       GITHUB_USER: ${GITHUB_USER}
+  #       GITHUB_PASSWORD: ${GITHUB_PASSWORD}
+  #   environment:
+  #     ODOO_DB_HOST: postgres
+  #     ODOO_DB_USER: 'openerp'
+  #     ODOO_DB_PASSWORD: '${ODOO_DB_PASSWORD}'
+  #   ports:
+  #     - '8810:8810'
+  #   depends_on:
+  #     - postgres
+  #   networks:
+  #     - jce-network
+  # postgres:
+  #   image: 'postgres:10'
+  #   environment:
+  #     POSTGRES_PASSWORD: 'postgres'
+  #   volumes:
+  #     - 'postgresql_data:/var/lib/postgresql/data'
+  #     - target: /docker-entrypoint-initdb.d/00-init.sql
+  #       source: ./odoo/00-init.sql
+  #       type: bind
+  #     - target: /docker-entrypoint-initdb.d/01-init-dump.sh
+  #       source: ./odoo/01-init-dump.sh
+  #       type: bind
+  #     - target: /docker-entrypoint-initdb.d/01-dump.sql
+  #       source: ./odoo/01-dump.sql
+  #       type: bind 
+  #   ports:
+  #   - '5432:5432'
+  #   networks:
+  #     - jce-network
 networks:
   jce-network:
 volumes:
