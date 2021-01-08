@@ -1,60 +1,75 @@
-FROM alpine:latest
+FROM mcr.microsoft.com/vscode/devcontainers/base:buster
 
-ARG USERNAME=dev
-ARG USER_UID=1000
-ARG USER_GID=1000
-ARG HOME=/home/${USERNAME}
+# [Option] Install zsh
+ARG INSTALL_ZSH="true"
+# [Option] Upgrade OS packages to their latest versions
+ARG UPGRADE_PACKAGES="false"
+# [Option] Enable non-root Docker access in container
 ARG ENABLE_NONROOT_DOCKER="true"
+
+# Install needed packages and setup non-root user. Use a separate RUN statement to add your own dependencies.
 ARG SOURCE_SOCKET=/var/run/docker-host.sock
 ARG TARGET_SOCKET=/var/run/docker.sock
+ARG USERNAME=vscode
+ARG USER_UID=1000
+ARG USER_GID=$USER_UID
 
-ENV PYTHONUNBUFFERED 1
+COPY .devcontainer/library-scripts/*.sh /tmp/library-scripts/
+RUN apt-get update \
+    && /bin/bash /tmp/library-scripts/common-debian.sh "${INSTALL_ZSH}" "${USERNAME}" "${USER_UID}" "${USER_GID}" "${UPGRADE_PACKAGES}" \
+    # Use Docker script from script library to set things up
+    && /bin/bash /tmp/library-scripts/docker-debian.sh "${ENABLE_NONROOT_DOCKER}" "${SOURCE_SOCKET}" "${TARGET_SOCKET}" "${USERNAME}" \
+    # Clean up
+    && apt-get autoremove -y && apt-get clean -y && rm -rf /var/lib/apt/lists/* /tmp/library-scripts/
 
-COPY .devcontainer/app/*.sh /tmp/library-scripts/
+ENTRYPOINT [ "/usr/local/share/docker-init.sh" ]
+CMD [ "sleep", "infinity" ]
 
-RUN set -x; \
-    apk add --no-cache \
-        curl \
-        git \
-        python2 \
-        py3-virtualenv \
-        shadow \
-        zsh \
-    && addgroup --gid ${USER_GID} ${USERNAME} \
-    && adduser \
-        --disabled-password \
-        --gecos '' \
-        --home "${HOME}" \
-        --ingroup "${USERNAME}" \
-        --uid "${USER_UID}" \
-        --shell /bin/zsh \
-        "${USERNAME}" \
-    && echo 'dev ALL=(ALL) NOPASSWD:ALL' >> /etc/sudoers \
-    && /bin/ash /tmp/library-scripts/docker-alpine.sh "${ENABLE_NONROOT_DOCKER}" "${SOURCE_SOCKET}" "${TARGET_SOCKET}" "${USERNAME}" \
-    && virtualenv -p /usr/bin/python2.7 ${HOME}/.virtualenvs/venv \
-    && ash -c 'echo '"'"'export PATH=${HOME}/.virtualenvs/venv/bin:"$PATH"'"'"' >> ${HOME}/.zshenv' \
-    && chown -R ${USERNAME}:${USERNAME} ${HOME}/.virtualenvs/venv
-
-COPY --chown=${USERNAME}:${USERNAME} .devcontainer/.zshrc ${HOME}/.zshrc
-
-RUN set -e; \
-    apk add --no-cache ncurses 
+### Setup python ###
+# helpful links:
+# https://github.com/pyenv/pyenv/wiki/Common-build-problems
+# https://github.com/pyenv/pyenv/blob/32922007863c4a54feca2a95226c8307cfdfea3d/plugins/python-build/README.md
+# https://github.com/pyenv/pyenv/issues/990
+RUN apt-get update && \
+    DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
+    build-essential \
+    curl \
+    git \
+    libbz2-dev \
+    libffi-dev \
+    liblzma-dev \
+    libncurses5-dev \
+    libncursesw5-dev \
+    libreadline-dev \
+    libsqlite3-dev \
+    libssl-dev \
+    llvm \
+    make \
+    tk-dev \
+    wget \
+    xz-utils \
+    zlib1g-dev \
+    && apt-get autoremove -y && apt-get clean -y && rm -rf /var/lib/apt/lists/*
 
 USER ${USERNAME}
 
-ENV TERM=dumb
+ENV LC_ALL=C.UTF-8 \
+    LANG=C.UTF-8 \
+    PYENV_SHELL="zsh"
 
-RUN set -e; \
-    zsh -c 'curl -sL --proto-redir -all,https https://raw.githubusercontent.com/zplug/installer/master/installer.zsh | zsh'
+RUN curl -L https://github.com/pyenv/pyenv-installer/raw/master/bin/pyenv-installer | bash
+
+ENV PATH=/home/${USERNAME}/.pyenv/shims:/home/${USERNAME}/.pyenv/bin:$PATH
+
+RUN set -ex; \
+    pyenv install 3.8.6 \
+    && pyenv global 3.8.6 \
+    && pyenv rehash
+
+RUN set -x; python -m pip install --disable-pip-version-check --no-cache-dir pylint pytest
 
 WORKDIR /workspace
 
 COPY --chown=${USERNAME}:${USERNAME} requirements.txt .
 
-RUN set -x; \
-    zsh -c 'python -m pip install --disable-pip-version-check --no-cache-dir pylint pytest' \
-    && zsh -c 'python -m pip install --disable-pip-version-check --no-cache-dir -r requirements.txt'
-
-ENTRYPOINT [ "/usr/local/share/docker-init.sh" ]
-
-
+RUN python -m pip install --disable-pip-version-check --no-cache-dir -r requirements.txt

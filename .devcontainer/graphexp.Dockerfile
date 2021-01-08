@@ -1,10 +1,9 @@
+FROM alpine as build
+
+RUN apk add --no-cache curl tar \
+    && curl -sSL 'https://github.com/armandleopold/graphexp/archive/v0.8.2.tar.gz' | tar -xz
+
 FROM nginx
 
-RUN apt-get update \
-    && apt-get -y --no-install-recommends install git \
-    && git clone https://github.com/bricaud/graphexp \
-    && mv graphexp/*  /usr/share/nginx/html \
-    && apt-get remove -y git \
-    && apt-get autoremove -y \
-    && apt-get autoclean -y \
-    && rm -rf /var/lib/apt/lists/*
+COPY --from=build /graphexp-0.8.2/ /usr/share/nginx/html
+COPY .devcontainer/graphexp/graphConf.js /usr/share/nginx/html/scripts

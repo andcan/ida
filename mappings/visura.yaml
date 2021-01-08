@@ -1,0 +1,36 @@
+name: Persona
+label: Persona
+keys: []
+properties:
+- name: anagraficatitolaredenominazione
+  source: anagrafica-titolare.@denominazione
+  merge_behavior: merge_if_not_present
+  kind: null
+  format: null
+  is_edge_property: false
+- name: quotedirittiquotadirittoctipodiritto
+  source: quote-diritti.quota-diritto.@c-tipo-diritto
+  merge_behavior: merge_if_not_present
+  kind: datetime
+  format: null
+  is_edge_property: false
+- name: quotedirittiquotadirittotipodiritto
+  source: quote-diritti.quota-diritto.@tipo-diritto
+  merge_behavior: merge_if_not_present
+  kind: null
+  format: null
+  is_edge_property: false
+- name: quotedirittiquotadirittovalorenominale
+  source: quote-diritti.quota-diritto.@valore-nominale
+  merge_behavior: merge_if_not_present
+  kind: null
+  format: null
+  is_edge_property: false
+- name: quotedirittiquotadirittopercentualecapitale
+  source: quote-diritti.quota-diritto.@percentuale-capitale
+  merge_behavior: merge_if_not_present
+  kind: datetime
+  format: null
+  is_edge_property: false
+relations: []
+

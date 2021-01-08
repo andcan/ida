@@ -3,6 +3,10 @@
 	"dockerComposeFile": "docker-compose.yaml",
 	"service": "app",
 	"workspaceFolder": "/workspace",
+	// Use this environment variable if you need to bind mount your local source code into a new container.
+	"remoteEnv": {
+		"LOCAL_WORKSPACE_FOLDER": "${localWorkspaceFolder}"
+	},
 	// Set *default* container specific settings.json values on container create.
 	"settings": {
 		"editor.formatOnSave": true,
@@ -30,13 +34,13 @@
 		"ms-python.vscode-pylance",
 		"visualstudioexptteam.vscodeintellicode",
 		"tabnine.tabnine-vscode",
-		"ms-azuretools.vscode-docker"
+		"ms-azuretools.vscode-docker",
+		"grapecity.gc-excelviewer"
 	],
 	// Use 'forwardPorts' to make a list of ports inside the container available locally.
 	"forwardPorts": [
-		5432
+		5432,
 	],
 	// Use 'postCreateCommand' to run commands after the container is created.
-	"postCreateCommand": "source /home/dev/.virtualenvs/venv/bin/activate && pip install -r /workspace/requirements.txt",
-	"remoteUser": "dev"
+	"remoteUser": "vscode"
 }

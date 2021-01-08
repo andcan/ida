@@ -1,0 +1,43 @@
+name: Persona
+label: Persona
+keys:
+- name: numeroTelefono
+properties:
+- name: numeroTelefono
+  source: Numero Telefono
+  merge_behavior: merge_if_not_present
+  kind: str
+  format: phone
+  is_edge_property: false
+- name: cognome
+  source: Cognome Customer
+  merge_behavior: merge_if_not_present
+  kind: null
+  format: null
+  is_edge_property: false
+- name: nome
+  source: Nome Customer
+  merge_behavior: merge_if_not_present
+  kind: null
+  format: null
+  is_edge_property: false
+- name: residenza
+  source: Residenza Customer
+  merge_behavior: merge_if_not_present
+  kind: null
+  format: null
+  is_edge_property: false
+- name: luogoDatanascita
+  source: Luogo/Data di Nascita Customer
+  merge_behavior: merge_if_not_present
+  kind: null
+  format: null
+  is_edge_property: false
+- name: codiceFiscale
+  source: C.F./P.IVA Customer
+  merge_behavior: merge_if_not_present
+  kind: null
+  format: null
+  is_edge_property: false
+relations: []
+

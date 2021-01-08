@@ -37,7 +37,5 @@ def gremlin_url(request):
 
 
 @pytest.fixture()  # type: ignore
-def graph_name():
-    # type: () -> str
-    # type: ignore
-    return unicode('g_' + str(uuid4()).replace('-', ''), 'utf-8')
+def graph_name() -> str:
+    return 'g_' + str(uuid4()).replace('-', '')

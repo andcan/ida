@@ -1,8 +1,10 @@
 {
-    "python.pythonPath": "/home/dev/venvs/venv/bin/python",
-    "python.venvPath": "/home/dev/venvs",
-    "python.linting.ignorePatterns": [
-        ".vscode/*.py",
-        "/home/dev/venvs/venv/**/site-packages/**/*.py"
+    "python.formatting.provider": "autopep8",
+    "editor.formatOnSave": true,
+    "editor.formatOnType": true,
+    "editor.fontLigatures": true,
+    "python.pythonPath": "/home/vscode/.pyenv/shims/python",
+    "python.analysis.extraPaths": [
+        "/home/vscode/.pyenv/versions/3.9.0/lib/python3.9/site-packages",
     ]
 }

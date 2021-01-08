@@ -1,16 +1,14 @@
-from typing import Any, Optional, Sequence
+from typing import Any, Sequence
 
 from gremlin_python.driver.client import Client
 
 
 class GraphClient:
-    def __init__(self, client, inmemory=False):
-        # type: (Client, Optional[bool]) -> None
+    def __init__(self, client: Client, inmemory: bool = False):
         self._client = client
         self._inmemory = inmemory
 
-    def create_graph(self, name):
-        # type: (str) -> None
+    def create_graph(self, name: str) -> None:
         if self._inmemory:
             self.submit_lines([
                 'map = new HashMap<String, Object>();[]',
@@ -30,43 +28,33 @@ class GraphClient:
                 'ConfiguredGraphFactory.createConfiguration(new MapConfiguration(map));[]'
             ])
 
-    def drop_graph(self, name):
-        # type: (str) -> None
-        if isinstance(name, unicode): # type: ignore
+    def drop_graph(self, name: str) -> None:
+        if isinstance(name, unicode):  # type: ignore
             name = str(name)
         self.submit('ConfiguredGraphFactory.drop("{0}");'.format(name))
 
-    def graph_names(self):
-        # type: () -> Sequence[str]
+    def graph_names(self) -> Sequence[str]:
         return self.submit('ConfiguredGraphFactory.getGraphNames()')
 
-    def setup_traversal(self, graph_name):
-        # type: (str) -> None
-        if isinstance(graph_name, unicode): # type: ignore
-            graph_name = str(graph_name)
-        self.submit('g = ConfiguredGraphFactory.open("{0}").traversal();[]'.format(graph_name))
+    def setup_traversal(self, graph_name: str) -> None:
+        self.submit(
+            'g = ConfiguredGraphFactory.open("{0}").traversal();[]'.format(graph_name))
 
-    def submit_one(self, message):
-        # type: (str) -> Any
+    def submit_one(self, message: str) -> Any:
         return self._client.submit(message).one().result()
 
-    def submit(self, message):
-        # type: (str) -> Any
+    def submit(self, message: str) -> Any:
         return self._client.submit(message).all().result()
 
-    def submit_lines(self, lines):
-        # type: (Sequence[str]) -> Any
-        message = ''  # type: str
+    def submit_lines(self, lines: Sequence[str]) -> Any:
+        message = ''
         for line in lines:
             message += line
             message += '\n'
 
         return self.submit(message)
 
-    def load_graph_of_the_gods(self, graph_name, create=False):
-        # type: (str, bool) -> None
-        if isinstance(graph_name, unicode): # type: ignore
-            graph_name = str(graph_name)
+    def load_graph_of_the_gods(self, graph_name: str, create: bool = False) -> None:
         if create:
             self.create_graph(graph_name)
         if self._inmemory:

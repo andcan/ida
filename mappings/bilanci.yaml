@@ -1,0 +1,14 @@
+# generated with ./cli.py mapping generate --input test_data/_EsempioTAGVisura.xml --graph traffico --path 'Risposta.dati.blocchi-impresa.doc-consultabili.bilanci.bilancio' --label Bilanci --map-all
+name: Bilanci
+label: Bilanci
+keys:
+- name: 'anno'
+properties:
+- name: anno
+  source: '@anno'
+  merge_behavior: merge_if_not_present
+  kind: int
+  format: null
+  is_edge_property: false
+edge_keys: []
+relations: []

@@ -1,0 +1,48 @@
+name: Persona
+label: Persona
+keys:
+- name: numeroTelefono
+properties:
+- name: numeroTelefono
+  source: Chiamato
+  merge_behavior: merge_if_not_present
+  kind: str
+  format: phone
+- name: dataOraInizio
+  source: Data e Ora Inizio
+  merge_behavior: merge_if_not_present
+  kind: datetime
+  format: null
+- name: dataOraFine
+  source: Data e Ora Fine
+  merge_behavior: merge_if_not_present
+  kind: datetime
+  format: null
+- name: zonaCella
+  source: LAI-CI, Zona-Cella
+  merge_behavior: merge_if_not_present
+  kind: null
+  format: null
+- name: serial
+  source: IMEI/SERIAL
+  merge_behavior: merge_if_not_present
+  kind: null
+  format: null
+relations:
+- name: chiamatoDa
+  label: Persona
+  keys:
+  - name: numeroTelefono
+  edge_properties:
+  - name: dataOraInizio
+  - name: dataOraFine
+  - name: zonaCella
+  edge_keys:
+  - name: dataOraInizio
+  - name: dataOraFine
+  properties:
+  - name: numeroTelefono
+    source: Chiamante
+    merge_behavior: merge_if_not_present
+    kind: str
+    format: phone

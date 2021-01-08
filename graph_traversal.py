@@ -1,11 +1,17 @@
+from __future__ import annotations
+
 from gremlin_python.driver.driver_remote_connection import DriverRemoteConnection
 from gremlin_python.process.anonymous_traversal import traversal
 from gremlin_python.process.graph_traversal import __, outV, select
-from data import KeyMapping, Mapping, NodeSchema, PropertySchema, Schema, merge_always, merge_if_not_present
-from typing import Any, Dict, List, Optional, Sequence
+from data import Mapping, NodeSchema, PropertyMapping, PropertySchema, Schema, merge_always, merge_if_not_present
+from typing import Any, Dict, Iterable, List, Optional, Sequence, Set, Tuple
 from gremlin_python.process.graph_traversal import GraphTraversalSource, addV, choose, constant, elementMap, has, local, unfold, valueMap, values, key, label, properties, value
 import gremlin_python.process.graph_traversal as graph_traversal
 from gremlin_python.process.traversal import Column, P
+import pandas as pd
+import numpy as np
+from data_loader import parse_date, phone_regex
+from functools import reduce
 
 ErrKeyMappingNoCorrespondingPropertyMapping = 'ErrKeyMappingNoCorrespondingPropertyMapping'
 
@@ -16,31 +22,26 @@ ErrPropertyMappingNoCorrespondingPropertySchema = 'ErrPropertyMappingNoCorrespon
 
 class MappingError(Exception):
 
-    def __init__(self, code, args=None):
-        # type: (str, Optional[Dict[str, Any]]) -> None
+    def __init__(self, code: str, args: Optional[Dict[str, Any]] = None):
         self.code = code
         self.arguments = args
 
 
 class GraphTraversal(object):
 
-    def __init__(self, g):
-        # type: (GraphTraversalSource) -> None
+    def __init__(self, g: GraphTraversalSource):
         super(GraphTraversal, self).__init__()
         self._g = g
 
     @staticmethod
-    def from_url(url, traversal_source):
-        # type: (str, str) -> GraphTraversal
+    def from_url(url: str, traversal_source: str) -> GraphTraversal:
         return GraphTraversal(traversal().withRemote(DriverRemoteConnection(url, traversal_source)))
 
     @property
-    def g(self):
-        # type: () -> GraphTraversalSource
+    def g(self) -> GraphTraversalSource:
         return self._g
 
-    def has_duplicates(self, mapping):
-        # type: (Mapping) -> bool
+    def has_duplicates(self, mapping: Mapping) -> bool:
         keys = list(
             map(
                 lambda e: e.name,
@@ -52,23 +53,12 @@ class GraphTraversal(object):
         ).select(Column.values).unfold().is_(P.gt(1)).count().next()
         return count > 0
 
-    def build_query_map_vertex(
-        self,
-        q,  # type: graph_traversal.GraphTraversal
-        mapping,  # type: Mapping
-        element,  # type: Dict[str, Any]
-    ):
-        # type: (...) -> graph_traversal.GraphTraversal
-
-        return q
-
     def build_query(
         self,
-        q,  # type: graph_traversal.GraphTraversal
-        mapping,  # type: Mapping
-        element,  # type: Dict[str, Any]
-    ):
-        # type: (...) -> graph_traversal.GraphTraversal
+        q: graph_traversal.GraphTraversal,
+        mapping: Mapping,
+        element: Dict[str, Any],
+    ) -> graph_traversal.GraphTraversal:
         q = q.V().hasLabel(mapping.label)
         for property_mapping in mapping.key_properties():
             q = q.has(
@@ -89,8 +79,17 @@ class GraphTraversal(object):
         )
         for source_key in element.keys():
             property_mapping = mapping.property_by_source(source_key)
-            if not property_mapping:
+            if property_mapping is None:
                 continue  # key not mapped in current context
+            if reduce(
+                lambda l, r: l or mapping.is_edge_property(
+                    r,
+                    property_mapping  # type: ignore
+                ),
+                mapping.relations,
+                False,
+            ):
+                continue
             if mapping.is_key_property(property_mapping):
                 continue
             if property_mapping.merge_behavior == merge_always:
@@ -98,7 +97,7 @@ class GraphTraversal(object):
                     property_mapping.name,
                     element[property_mapping.source]
                 )
-            elif property_mapping.merge_behavior == merge_if_not_present:
+            elif property_mapping.merge_behavior == merge_if_not_present or property_mapping.merge_behavior == None:
                 q = q.property(
                     property_mapping.name,
                     choose(
@@ -111,11 +110,8 @@ class GraphTraversal(object):
                 raise Exception('unsupported merge behavior: {}'.format(
                     property_mapping.merge_behavior)
                 )
-        hasRelations = mapping.relations != None and len(
-            mapping.relations) != 0
         mapping_ref = '_{}'.format(mapping.name)
-        if hasRelations:
-            q = q.aggregate(mapping_ref)
+        q = q.aggregate(mapping_ref)
         for relation in mapping.relations:
             q = self.build_query(
                 q=q,
@@ -123,74 +119,123 @@ class GraphTraversal(object):
                 element=element,
             )
             rel_ref = '_{}'.format(relation.name)
-            q = q.coalesce(
-                select(rel_ref).unfold().inE(relation.name).where(
-                    outV().where(P.within(mapping_ref)),
+            edge_keys = mapping.edge_key_properties(relation)
+            if edge_keys is None or len(edge_keys) == 0:
+                q = q.coalesce(
+                    select(rel_ref).unfold().inE(relation.name).where(
+                        outV().where(P.within(mapping_ref))
+                    ),
                     select(mapping_ref).unfold().addE(relation.name).to(
                         select(rel_ref).unfold()
                     )
                 )
-            )
-        return q
-
-    def map_data(
-        self,
-        mapping,  # type: Mapping
-        data,  # type: Sequence[Dict[str, Any]]
-    ):
-        for element in data:
-            q = self.build_query(
-                self._g,
-                mapping,
-                element,
-            )
-            q = self._g.V().hasLabel(mapping.label)
-            qAddV = addV(mapping.label)
-            for property_mapping in mapping.key_properties():
-                q = q.has(property_mapping.name,
-                          element[property_mapping.source])
-                qAddV = qAddV.property(
-                    property_mapping.name,
-                    element[property_mapping.source]
+            else:
+                s_q = select(rel_ref).unfold().inE(relation.name).where(
+                    outV().where(P.within(mapping_ref))
                 )
-
-            q = q.fold().coalesce(
-                unfold(),
-                qAddV,
-            )
+                for key in edge_keys:
+                    s_q = s_q.where(
+                        has(
+                            key.name,
+                            element[key.source]
+                        )
+                    )
+                q = q.coalesce(
+                    s_q,
+                    select(mapping_ref).unfold().addE(relation.name).to(
+                        select(rel_ref).unfold()
+                    )
+                )
             for source_key in element.keys():
                 property_mapping = mapping.property_by_source(source_key)
                 if not property_mapping:
                     continue  # key not mapped in current context
-                    # raise MappingError(
-                    #     ErrSourceKeyNoCorrespondingPropertyMapping,
-                    #     args={'source': source_key},
-                    # )
-                if mapping.is_key_property(property_mapping):
-                    continue
-                if property_mapping.merge_behavior == merge_always:
-                    q = q.property(property_mapping.name,
-                                   element[property_mapping.source])
-                elif property_mapping.merge_behavior == merge_if_not_present:
-                    q = q.property(
-                        property_mapping.name,
-                        choose(
-                            has(property_mapping.name),
-                            values(property_mapping.name),
-                            constant(element[property_mapping.source])
+                if mapping.is_edge_property(relation, property_mapping):
+                    if mapping.is_key_property(property_mapping):
+                        raise Exception(
+                            'key properties cannot be edge properties')
+                    if property_mapping.merge_behavior == merge_always:
+                        q = q.property(
+                            property_mapping.name,
+                            element[property_mapping.source]
                         )
-                    )
-                else:
-                    raise Exception('unsupported merge behavior: {}'.format(
-                        property_mapping.merge_behavior))
+                    elif property_mapping.merge_behavior == merge_if_not_present or property_mapping.merge_behavior == None:
+                        q = q.property(
+                            property_mapping.name,
+                            choose(
+                                has(property_mapping.name),
+                                values(property_mapping.name),
+                                constant(element[property_mapping.source])
+                            )
+                        )
+                    else:
+                        raise Exception('unsupported merge behavior: {}'.format(
+                            property_mapping.merge_behavior)
+                        )
+        return q
+
+    def map_data(
+        self,
+        mapping: Mapping,
+        df: pd.DataFrame,
+    ) -> None:
+        def _checkKeys(mapping: Mapping) -> None:
+            if len(mapping.keys) == 0:
+                raise Exception(
+                    'mapping <{}> has no keys'.format(mapping.name))
+            if mapping.relations is not None and len(mapping.relations) > 0:
+                for m in mapping.relations:
+                    _checkKeys(m)
+
+        def _collectProperties(mapping: Mapping) -> List[PropertyMapping]:
+            ps = []
+            for property in mapping.properties:
+                ps.append(property)
+            if mapping.relations is not None and len(mapping.relations) > 0:
+                for m in mapping.relations:
+                    ps = ps + _collectProperties(m)
+            return ps
+
+        df = df.convert_dtypes()
+        for property in _collectProperties(mapping):
+            if property.kind == 'str':
+                df[property.source] = df[property.source].astype('str')
+            elif property.kind == 'int':
+                df[property.source] = df[property.source].astype(
+                    np.int64)  # type: ignore
+            elif property.kind == 'float':
+                df[property.source] = df[property.source].astype(
+                    np.float64)  # type: ignore
+            elif property.kind == 'datetime':
+                df[property.source] = df[property.source].map(parse_date)
+
+            if property.format == 'phone':
+                def _map_phone(phone: str) -> str:
+                    match = phone_regex.search(phone)
+                    if match is None:
+                        raise Exception('unable to parse phone')
+                    v = match.group(0).replace(' ', '').replace('-', '')
+                    if len(v) == 10:
+                        return "+39" + v
+                    elif v.startswith('39'):
+                        return "+" + v
+                    return v
+                df[property.source] = df[property.source].map(_map_phone)
+
+        data = df.to_dict('records')
+        for element in data:
+            q = self.build_query(
+                self._g,  # type: ignore
+                mapping,
+                element,
+            )
+            # print(format_query(q))
             q.next()
 
-    def labels(self):
-        # type: () -> Sequence[str]
+    def labels(self) -> Sequence[str]:
         return self._g.V().label().dedup().toList()
 
-    def properties(self, label=None):
-        # type: (Optional[str]) -> Sequence[str]
+    def properties(self, label: Optional[str] = None) -> Sequence[str]:
         q = self._g.V()
         if label != None:
             q = q.hasLabel(label)
@@ -202,8 +247,7 @@ class GraphTraversal(object):
 
     # TODO: check how to use indexes to make this faster, janus reports:
     # WARN  org.janusgraph.graphdb.transaction.StandardJanusGraphTx  - Query requires iterating over all vertices [()]. For better performance, use indexes
-    def schema(self):
-        # type: () -> Schema
+    def schema(self) -> Schema:
         result = self.g.V().group().by(label()).by(
             properties().group().by(key()).by(
                 value().map(lambda: ('it.get().getClass()', 'gremlin-groovy'))

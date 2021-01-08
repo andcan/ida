@@ -5,11 +5,13 @@ services:
     build:
       context: ..
       dockerfile: .devcontainer/Dockerfile
+    init: true
     volumes:
-      - ..:/workspace:cached
       - /var/run/docker.sock:/var/run/docker-host.sock
+      - ..:/workspace:cached
+    entrypoint: /usr/local/share/docker-init.sh
     command: sleep infinity
-    user: dev
+    user: vscode
     networks:
       - jce-network
   janusgraph:
@@ -19,7 +21,7 @@ services:
       - elasticsearch
       - cassandra
     ports:
-      - "8182:8182"
+      - '8182:8182'
     networks:
       - jce-network
     volumes:
@@ -39,12 +41,12 @@ services:
         target: /opt/janusgraph/conf/tinkergraph-empty.properties
         read_only: true
         type: bind
-# TODO: check why not becoming healthy, took from https://github.com/JanusGraph/janusgraph-docker/blob/master/docker-compose-cql-es.yml (0.5.2)
-#    healthcheck:
-#      test: ["CMD", "bin/gremlin.sh", "-e", "scripts/remote-connect.groovy"]
-#      interval: 10s
-#      timeout: 30s
-#      retries: 3
+    # TODO: check why not becoming healthy, took from https://github.com/JanusGraph/janusgraph-docker/blob/master/docker-compose-cql-es.yml (0.5.2)
+    #    healthcheck:
+    #      test: ["CMD", "bin/gremlin.sh", "-e", "scripts/remote-connect.groovy"]
+    #      interval: 10s
+    #      timeout: 30s
+    #      retries: 3
     deploy:
       resources:
         limits:
@@ -54,14 +56,14 @@ services:
     image: cassandra:3
     container_name: jce-cassandra
     ports:
-      - "9042:9042"
+      - '9042:9042'
     networks:
       - jce-network
     environment:
       HEAP_NEWSIZE: 256M
       MAX_HEAP_SIZE: 512M
     healthcheck:
-      test: [ "CMD-SHELL", "[ $$(nodetool statusgossip) = running ]" ]
+      test: ['CMD-SHELL', '[ $$(nodetool statusgossip) = running ]']
       interval: 30s
       timeout: 10s
       retries: 5
@@ -79,15 +81,15 @@ services:
     image: docker.elastic.co/elasticsearch/elasticsearch:6.6.0
     container_name: jce-elastic
     environment:
-      - "ES_JAVA_OPTS=-Xms512m -Xmx512m"
-      - "http.host=0.0.0.0"
-      - "network.host=0.0.0.0"
-      - "transport.host=127.0.0.1"
-      - "cluster.name=docker-cluster"
-      - "xpack.security.enabled=false"
-      - "discovery.zen.minimum_master_nodes=1"
+      - 'ES_JAVA_OPTS=-Xms512m -Xmx512m'
+      - 'http.host=0.0.0.0'
+      - 'network.host=0.0.0.0'
+      - 'transport.host=127.0.0.1'
+      - 'cluster.name=docker-cluster'
+      - 'xpack.security.enabled=false'
+      - 'discovery.zen.minimum_master_nodes=1'
     ports:
-      - "9200:9200"
+      - '9200:9200'
     networks:
       - jce-network
     volumes:
@@ -97,6 +99,24 @@ services:
         limits:
           cpus: '1'
           memory: '1G'
+  graphexp:
+    build:
+      context: ..
+      dockerfile: .devcontainer/graphexp.Dockerfile
+    ports:
+      - '8080:80'
+    networks:
+      - jce-network
+
+  ## Looks like custom traversals (non 'g' are not supported, so useless for now)
+  # jupyter:
+  #   build:
+  #     context: ..
+  #     dockerfile: .devcontainer/jupyter.Dockerfile
+  #   ports:
+  #     - '8888:8888'
+  #   networks:
+  #     - jce-network
   # odoo:
   #   build:
   #     context: ..
@@ -128,7 +148,7 @@ services:
   #       type: bind
   #     - target: /docker-entrypoint-initdb.d/01-dump.sql
   #       source: ./odoo/01-dump.sql
-  #       type: bind 
+  #       type: bind
   #   ports:
   #   - '5432:5432'
   #   networks:
