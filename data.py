@@ -125,9 +125,6 @@ class PropertyMapping(object):
     format = related.StringField(
         required=False,
     )
-    is_edge_property = related.BooleanField(
-        default=False,
-    )
 
     def __init__(
         self,

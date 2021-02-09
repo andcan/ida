@@ -28,7 +28,7 @@ def parse_date(s: str) -> Optional[datetime.datetime]:
 class DataLoader(object):
 
     def dataframe_from_csv(self, filename: str) -> pd.DataFrame:
-        return pd.read_csv(filename)
+        return pd.read_csv(filename, delimiter=';')
 
     def dataframe_from_xml(self, filename: str, path: str) -> pd.DataFrame:
         with open(filename, 'r') as f:
@@ -189,6 +189,8 @@ class DataLoader(object):
             keys=[],
             label=node.label,
             properties=properties,
+            edge_keys=[],
+            edge_properties=[],
         )
 
     def generate_mappings(

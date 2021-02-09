@@ -9,6 +9,7 @@ from gremlin_python.driver.client import Client
 import sys
 from data import merge_if_not_present, merge_always, NodeSchema, Mapping, PropertyMapping, KeyMapping
 import yaml
+import numpy as np
 
 
 def init(gremlin_url: str, graph: str, inmemory: bool, create: bool = False) -> GraphTraversal:
@@ -142,6 +143,7 @@ class CliMapping(object):
         dt = DataLoader()
         df = dt.load(input, query=query, path=path)
         m = load_mapping(mapping)
+        df = df.replace({np.nan: None})
         gt.map_data(m, df)
         return 'ok'
 

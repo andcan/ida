@@ -12,6 +12,8 @@ import pandas as pd
 import numpy as np
 from data_loader import parse_date, phone_regex
 from functools import reduce
+import time
+from util import format_query
 
 ErrKeyMappingNoCorrespondingPropertyMapping = 'ErrKeyMappingNoCorrespondingPropertyMapping'
 
@@ -198,6 +200,8 @@ class GraphTraversal(object):
 
         df = df.convert_dtypes()
         for property in _collectProperties(mapping):
+            if property.source not in df.columns:
+                continue
             if property.kind == 'str':
                 df[property.source] = df[property.source].astype('str')
             elif property.kind == 'int':
@@ -213,7 +217,7 @@ class GraphTraversal(object):
                 def _map_phone(phone: str) -> str:
                     match = phone_regex.search(phone)
                     if match is None:
-                        raise Exception('unable to parse phone')
+                        return ''
                     v = match.group(0).replace(' ', '').replace('-', '')
                     if len(v) == 10:
                         return "+39" + v
@@ -221,16 +225,43 @@ class GraphTraversal(object):
                         return "+" + v
                     return v
                 df[property.source] = df[property.source].map(_map_phone)
-
+                df = df[df[property.source] != '']
         data = df.to_dict('records')
         for element in data:
+            # delete keys with null values
+            to_delete = []
+            for key in element.keys():
+                if pd.isnull(element[key]):
+                    to_delete.append(key)
+                else:
+                    try:
+                        f = getattr(element[key], 'item')
+                        element[key] = f()
+                    except AttributeError:
+                        pass
+
+            for k in to_delete:
+                del element[k]
+
+        print(str(self._g.V().count().next()) + ' nodes')
+
+        rows = len(data)
+        i = 0
+        last = '0'
+        start = time.time()
+        for element in data:
+            current = str(round(i/rows, 2))
+            if current != last:
+                print(current + '% (' + str(i) + 'records, + ' +
+                      str(time.time() - start) + 's)')
+                last = current
             q = self.build_query(
                 self._g,  # type: ignore
                 mapping,
                 element,
             )
-            # print(format_query(q))
             q.next()
+            i = i + 1
 
     def labels(self) -> Sequence[str]:
         return self._g.V().label().dedup().toList()
