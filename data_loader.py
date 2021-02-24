@@ -11,24 +11,40 @@ import datetime
 import xmltodict
 import json
 import jsonpath_ng
+import datetime
 
 preferred_case_match_source = 'preferred_case_match_source'
 preferred_case_snake_case = 'preferred_case_snake_case'
 preferred_case_camel_case = 'preferred_case_camel_case'
 
-phone_regex = re.compile(r'((\d{2}|\+)?\d{2})?(\d[ -]*){10}')
+phone_regex = re.compile(r'((\d{2}|\+)?\d{2})?(\d[ -]*){3,10}')
 
 
-def parse_date(s: str) -> Optional[datetime.datetime]:
-    return dateparser.parse(s, languages=['it'], settings={
-        'DATE_ORDER': 'DMY'
-    })
+ddp = dateparser.DateDataParser(languages=['it'], settings={
+    'DATE_ORDER': 'YMD'
+})
+
+
+def parse_date(s: str):
+    data = ddp.get_date_data(s)
+    if data:
+        return data['date_obj']
+    return None
+
+# def parse_date(s: str) -> Optional[datetime.datetime]:
+#     # try:
+#     #     datetime.datetime.strptime(date_text, '%Y-%m-%d %H:%M:%s')
+#     # except ValueError:
+#     #     raise ValueError("Incorrect data format, should be YYYY-MM-DD")
+#     return dateparser.parse(s, languages=['it'], settings={
+#         'DATE_ORDER': 'YMD'
+#     })
 
 
 class DataLoader(object):
 
     def dataframe_from_csv(self, filename: str) -> pd.DataFrame:
-        return pd.read_csv(filename, delimiter=';')
+        return pd.read_csv(filename, delimiter=';', dtype=str)
 
     def dataframe_from_xml(self, filename: str, path: str) -> pd.DataFrame:
         with open(filename, 'r') as f:
@@ -152,14 +168,11 @@ class DataLoader(object):
             series = df[source]
 
             def _match_phone(s: Any) -> bool:
-                if isinstance(s, int) or isinstance(s, float) or isinstance(s, bool):
+                if isinstance(s, int) or isinstance(s, float):
                     s = str(s)
-                elif isinstance(s, str):
-                    pass
-                else:
-                    return False
-                if phone_regex.search(s):
-                    return True
+                if isinstance(s, str):
+                    if phone_regex.search(s):
+                        return True
                 return False
             matches = series.map(_match_phone).value_counts(normalize=True)
             if True in matches and matches[True] >= 0.9:  # type: ignore
