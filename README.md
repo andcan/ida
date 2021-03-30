@@ -13,6 +13,8 @@ OS supportati:
 * Docker
 * docker-compose
 * python 3.7+ (nel caso non si utilizzi VSCode) è consigliata la creazione di un [virtualenv](https://virtualenv.pypa.io/en/latest/). Consigliato l'utilizzo di [pyenv](https://github.com/pyenv/pyenv) con il plugin [pyenv-virtualenv](https://github.com/pyenv/pyenv-virtualenv).
+
+Nel caso lo si utilizzi all'apertura della cartella compare la notifica `Folder contains a Dev Container configuration file. Reopen folder to develop in a container `. Premendo il pulsante `Reopen in Container` avvia automaticamente i servizi riavviando l'editor (molto lento la prima volta).
 ## Avvio Servizi
 > !! Note per l'utilizzo di Docker !!
 > Per poter utilizzare docker è necessario avere privilegi di `root` (`sudo`).
@@ -20,7 +22,7 @@ OS supportati:
 
 Viene fornito il file `.devcontainer/docker-compose.yaml` che viene utilizzato da VSCode per configurare l'ambiente di sviluppo e i servizi necessari.  
 Nel caso non si usi VSCode il file `docker-compose` può comunque essere usato per avviare in maniera rapida i servizi (`JanusGraph`, `ElasticSearch`, ~~`Cassandra`~~ `Scylla`) necessari allo sviluppo. In questo caso conviene commentare la sezione `app` sotto `services` (`services.app`), dato che serve solo per VSCode.  
-Perchè il `docker-compose` funzioni correttamente è necessario eseguirlo dalla cartella `.devcontainer`, il primo avvio richiede un attimo di tempo dato che alcuni container devono essere costruiti prima di essere avviati. 
+Perchè il `docker-compose` funzioni correttamente è necessario eseguirlo dalla cartella `.devcontainer`, il primo avvio richiede un attimo di tempo dato che alcuni container devono essere costruiti prima di essere avviati (il container più lungo da assemblare è `app`). 
 Dato che i servizi si avviano contemporaneamente può essere necessario avviare manualmente `JanusGraph` nel caso ~~`Cassandra`~~ `Scylla` non abbia terminato l'inizializzazione prima che `JanusGraph` faccia un tentativo di connessione e di conseguenza termini con un errore.  
 In caso si abbiano problemi di avvio uno dei servizi può essere utile eliminare i volumi relativi ai servizi (`docker volume rm <nome>`, `docker volume ls` per avere la lista dei volumi).
 > !! Note per chi usa windows !!  
@@ -57,3 +59,13 @@ Parametri:
 Sono forniti:
 * `start_gremlin_console.sh`: apre una console gremlin nel terminale (richiede docker)
 * `graphexp`: servizio avviato da `docker-compose`. Contattabile all'indirizzo http://localhost:8080 (può essere necessario correggere le impostazioni di graphexp dall'interfaccia per puntare a localhost)
+
+## Setup su server
+* Clonare il repository.
+* Posizionarsi nella cartella `ida/.devcontainer`.
+* commentare la sezione `services.app` in `docker-compose.yaml`
+* Lanciare il comando `docker-compose up -d`
+
+### Per cancellare
+* Posizionarsi nella cartella `ida/.devcontainer`
+* Lanciare il comando `docker-compose down` (`-v` per eliminare anche i volumi)

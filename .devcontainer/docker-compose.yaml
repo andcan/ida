@@ -1,4 +1,4 @@
-version: '3.2'
+version: '3.7'
 
 services:
   app:
@@ -125,20 +125,20 @@ services:
       - '8090:80'
     networks:
       - jce-network
-  exlporer:
-    image: invanalabs/graph-explorer
-    ports:
-      - '8888:8888'
-    networks:
-      - jce-network
-  graphql:
-    image: invanalabs/invana-engine
-    environment:
-      - 'GREMLIN_SERVER_URL=ws://jce-janusgraph:8182/gremlin'
-    ports:
-      - '8000:8000'
-    networks: 
-      - jce-network
+  # explorer:
+  #   image: invanalabs/graph-explorer
+  #   ports:
+  #     - '8888:8888'
+  #   networks:
+  #     - jce-network
+  # graphql:
+  #   image: invanalabs/invana-engine
+  #   environment:
+  #     - 'GREMLIN_SERVER_URL=ws://jce-janusgraph:8182/gremlin'
+  #   ports:
+  #     - '8000:8000'
+  #   networks: 
+  #     - jce-network
   # spark-master:
   #   image: bde2020/spark-master:3.0.1-hadoop3.2
   #   container_name: spark-master
