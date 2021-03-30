@@ -1,4 +1,4 @@
-# Acquisizione e riconciliazione dati per sistema investigativo
+# Acquisizione e riconciliazione dati strutturati per sistema investigativo
 Il progetto è predisposto per funzionare con Visual Studio Code (da non confondere con Visual Studio), gratuito e funziona su Windows, MAC e linux.
 
 OS supportati:
@@ -65,7 +65,7 @@ Sono forniti:
 * Posizionarsi nella cartella `ida/.devcontainer`.
 * commentare la sezione `services.app` in `docker-compose.yaml`
 * Lanciare il comando `docker-compose up -d`
-* Verificare che Janus si avvii correttamente (`docker logs jce-janusgraph`).
+* Verificare che Janus si avvii correttamente (`docker logs -f jce-janusgraph`).
   Se avviato correttamente nel log l'ultima riga conterrà:
   ```
   13385 [gremlin-server-boss-1] INFO  org.apache.tinkerpop.gremlin.server.GremlinServer  - Channel started at port 8182.
@@ -85,6 +85,9 @@ map.put("index.search.hostname", "jce-elastic")
 map.put("index.search.elasticsearch.transport-scheme", "http")
 map.put("graph.graphname", "example")
 ConfiguredGraphFactory.createConfiguration(new MapConfiguration(map))
+
+graph = ConfiguredGraphFactory.open("example")
+g = graph.traversal()
 ```
 Verificare che il grafo esista con `ConfiguredGraphFactory.getGraphNames()`.
 
@@ -96,7 +99,7 @@ Nel caso si verificano timeout durante l'esecuzione di un comando non c'è modo 
 
 Esempio di creazione indice:
 ```
-mgmt = graph.openManagement()
+mgmt = graph.openManagement() // notare che è graph inizializzato con la open
 
 numero = mgmt.getPropertyKey('numero')
 lbl = mgmt.getPropertyKey('lbl')
@@ -115,6 +118,7 @@ Note:
 * Aspettare qualche secondo prima di committare
 * `commit` ha lo stesso difetto di `buildIndex`
 * Se ci si dimentica di committare `mgmt` e se apre un'altro il db si corrompe
+* Per creare un indice bisogna creare un nodo con quelle proprietà (committare dopo l'inserimento). L'indice resta anche dopo che il nodo viene eleminato.
 
 ### Per cancellare
 * Posizionarsi nella cartella `ida/.devcontainer`
