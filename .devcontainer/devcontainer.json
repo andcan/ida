@@ -30,12 +30,13 @@
 	// Add the IDs of extensions you want installed when the container is created.
 	"extensions": [
 		"ms-python.python",
-		"littlefoxteam.vscode-python-test-adapter",
+		//"littlefoxteam.vscode-python-test-adapter",
 		"ms-python.vscode-pylance",
-		"visualstudioexptteam.vscodeintellicode",
-		"tabnine.tabnine-vscode",
+		//"visualstudioexptteam.vscodeintellicode",
+		//"tabnine.tabnine-vscode",
 		"ms-azuretools.vscode-docker",
-		"grapecity.gc-excelviewer"
+		"grapecity.gc-excelviewer",
+		"randomfractalsinc.vscode-data-preview"
 	],
 	// Use 'forwardPorts' to make a list of ports inside the container available locally.
 	"forwardPorts": [

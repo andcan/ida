@@ -63,6 +63,7 @@ class GraphTraversal(object):
         mapping: Mapping,
         element: Dict[str, Any]
     ) -> graph_traversal.GraphTraversal:
+        # search node by mapping's key properies and label
         q = reduce(
             lambda q, property_mapping: q.has(
                 property_mapping.name,
@@ -71,6 +72,9 @@ class GraphTraversal(object):
             mapping.key_properties(),
             q.V().has('lbl', mapping.label)
         )
+        # gremlin's pattern to for upsert.
+        # returns previous node if found or creates a new one usign mapping's
+        # key properties
         q = q.fold().coalesce(
             unfold(),
             reduce(
@@ -82,14 +86,17 @@ class GraphTraversal(object):
                 addV(mapping.label).property('lbl', mapping.label),
             )
         )
+        # iterate record columns
         for source_key in element.keys():
+            # get property mapping matching current column
             property_mapping = mapping.property_by_source(source_key)
             if property_mapping is None:
                 continue  # key not mapped in current context
+            # cml 1 rt text="property is any relation's edge property"
             if reduce(
                 lambda is_edge_poperty, r: is_edge_poperty or mapping.is_edge_property(
                     r,
-                    property_mapping  # type: ignore
+                    property_mapping
                 ),
                 mapping.relations,
                 False,
@@ -98,14 +105,18 @@ class GraphTraversal(object):
             if mapping.is_key_property(property_mapping):
                 continue
             if property_mapping.merge_behavior == merge_always:
+                # assign value to property
                 q = q.property(
                     property_mapping.name,
                     element[property_mapping.source]
                 )
+            # cml 1 rt text="property_mapping.merge_behavior == merge_if_not_present"
             elif property_mapping.merge_behavior == merge_if_not_present or property_mapping.merge_behavior == None:
                 value = element[property_mapping.source]
+                # cml 1 rt text="value is null or empty"
                 if value is None or value == '<NA>':
                     continue
+                # assign value to property if not exists
                 q = q.property(
                     property_mapping.name,
                     choose(
@@ -115,10 +126,12 @@ class GraphTraversal(object):
                     )
                 )
             else:
+                # cml 1 rt text="unsupported merge beahvior"
                 raise Exception('unsupported merge behavior: {}'.format(
                     property_mapping.merge_behavior)
                 )
         for relation in mapping.relations:
+            # apply recursively on relations
             q = self.build_vertex_query(
                 q=q,
                 mapping=relation,
@@ -135,11 +148,15 @@ class GraphTraversal(object):
         parent: Optional[Mapping] = None,
     ) -> graph_traversal.GraphTraversal:
         if parent is None:
+            # make sure mapping's name is not empty
+            # empty name is allowed only for root mapping
             if mapping.name.strip() == '':
                 relation_name = '_root_mapping'
             else:
                 relation_name = mapping.name
+            # generate a reference
             ref = '{}_{}'.format(depth, relation_name)
+            # search node by mapping's key properies and label
             q = reduce(
                 lambda q, property_mapping: q.has(
                     property_mapping.name,
@@ -147,12 +164,16 @@ class GraphTraversal(object):
                 ),
                 mapping.key_properties(),
                 q.V().has('lbl', mapping.label)
+            # alias node usign ref
             ).as_(ref)
         else:
+            # reconstruct references of previous iteration
             relation_name = '{}_{}'.format(depth, parent.name)
             ref = '{}_{}'.format(depth, relation_name)
         for relation in mapping.relations:
+            # generate node reference for current relation
             rel_ref = '{}_{}'.format(depth, relation.name)
+            # search node by relations's key properties 
             q = reduce(
                 lambda q, property_mapping: q.has(
                     property_mapping.name,
@@ -160,7 +181,11 @@ class GraphTraversal(object):
                 ),
                 relation.key_properties(),
                 q.V().has('lbl', mapping.label)
+                # alias node usign rel_ref
             ).as_(rel_ref)
+            # search edge matching ref--[relation.name]-->rel_ref
+            # and properties matching relation's edge key properties.
+            # insert new edge if not exists and set key properties
             edge_keys = mapping.edge_key_properties(relation)
             q = q.select(ref).coalesce(
                 reduce(
@@ -195,17 +220,22 @@ class GraphTraversal(object):
                     continue  # key not mapped in current context
                 if mapping.is_edge_property(relation, property_mapping):
                     if mapping.is_key_property(property_mapping):
+                        # cml 1 rt text="key properties can't be edge property"
                         raise Exception(
                             'key properties cannot be edge properties')
                     if property_mapping.merge_behavior == merge_always:
+                        # assign value to property
                         q = q.property(
                             property_mapping.name,
                             element[property_mapping.source]
                         )
+                    # cml 1 rt text="property_mapping.merge_behavior == merge_if_not_present"
                     elif property_mapping.merge_behavior == merge_if_not_present or property_mapping.merge_behavior == None:
                         value = element[property_mapping.source]
+                        # cml 1 rt text="value is null or empty"
                         if value is None or value == '<NA>':
                             continue
+                        # assign value to property if not exists
                         q = q.property(
                             property_mapping.name,
                             choose(
@@ -215,10 +245,13 @@ class GraphTraversal(object):
                             )
                         )
                     else:
+                        # cml 1 rt text="unsupported merge behavior"
                         raise Exception('unsupported merge behavior: {}'.format(
                             property_mapping.merge_behavior)
                         )
+            # apply recursively
             self.build_edge_query(q, relation, element, depth + 1, mapping)
+        # return built query
         return q
 
     def build_query(

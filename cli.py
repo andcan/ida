@@ -158,6 +158,33 @@ class CliMapping(object):
         query: Optional[str] = None,
         path: Optional[str] = None,
     ) -> str:
+        """
+        Generates a mapping with label LABEL for the given GRAPH, using INPUT as source for data.
+
+        The default behavior is to map only fields that match properties of LABEL-labeled nodes. 
+        
+        To change the default behavior and search for all node types you can pass '*' as the label.
+
+        A field is considered to match if the Levenshtein edit distance of lowercased and 
+        non-alphanumeric filtered field and property names is less than or equal to the proportion 
+        indicated by the tolerance parameter.
+        For example a tolerance of 0.5 means that a field matches a porperty if their Levenshtein
+        edit distance is less than or equal to half length of node's property.
+        See https://en.wikipedia.org/wiki/Levenshtein_distance.
+
+        The create param creates the graph if it does not exist.
+
+        The path param is used to specifiy the mapping context for semi-structured data (XML, JSON).
+
+        It's possible to filter input data by using pandas query format. See
+        https://pandas.pydata.org/docs/reference/api/pandas.DataFrame.query.html for more information.
+
+        The generator will try to infer field types for given source file.
+        Recognizable types are the ones recognized by pandas and there is specialized support for 
+        phone nunmbers and dates.
+        Given the purpose of the software dates will be parsed in day-month order and the phone numbers 
+        without international prefix will be considered italian numbers.
+        """
         gt = init(
             gremlin_url=self.gremlin_url,
             graph=graph,

@@ -1,6 +1,6 @@
 import os
 import re
-from typing import Callable, List, Optional, Pattern, Tuple
+from typing import Any, Callable, List, Optional, Pattern, Tuple
 import numpy as np
 from numpy.lib.npyio import load
 import pandas as pd
@@ -8,13 +8,37 @@ import io
 import dateparser
 import csv
 
-xxtab_tim_prefix = r'(\d\dTab/|(f|F8)_\d\d).*/(Tim|tim|Telefonico|TIM).*/Package[0-9_]+'
-xxtab_voda_prefix = r'\d\dTab/.*/(Vodafone|vOD|vODA|voda|Voda|vODAFONE|VOD|VODA).*/Package[a-zA-Z0-9_$]+'
+xxtab_tim_prefix = r'(\d\dTab/|(f|F)8_\d\d).*/(Tim|tim|Telefonico|TIM|TIm).*/Package[0-9_]+'
+xxtab_voda_prefix = r'(\d\dTab/|(f|F)8_\d\d).*/(Vodafone|vOD|vODA|voda|Voda|vODAFONE|VOD|VODA).*/Package[a-zA-Z0-9_$]+'
 xxtab_wind_prefix = r'\d\dTab/.*/(Telefonico wind|Wind|WIND).*'
 xxtab_sparkle_prefix = r'\d\dTab/.*/(SPARKLE|Sparkle).*'
 f8xx_tim_prefix = r'(f|F)8_\d\d/.*/(TIm|TIM|Tim|tim).*'
 f8_bt_italia_prefix = r'(f|F)8_\d\d/.*/(BT Italia).*'
 f8xx_iliad_prefix = r'(f|F)8_\d\d/.*/(Iliad|ILIAD|iliad).*'
+f8xx_wind_prefix = r'(f|F)8_\d\d/.*/(Wind|WIND).*'
+
+
+_phone_regex = re.compile(r'((\d{2}|\+)?\d{2})?(\d[ -]*){3,17}')
+
+
+def map_phone(phone: Any, prefix='+39') -> Optional[str]:
+    if pd.isnull(phone):
+        return None
+    if not isinstance(phone, str):
+        phone = str(phone)
+    match = _phone_regex.search(phone)
+    if match is None:
+        print('invalid phone: ' + phone)
+        return None
+    v = match.group(0).replace(' ', '').replace('-', '')
+    if len(v) == 10:
+        return prefix + v
+    elif v.startswith(prefix.replace('+', '')):
+        return "+" + v
+    elif v.startswith('00'):
+        return v.replace('00', '+', 1)
+    return v
+
 
 ddp = dateparser.DateDataParser(languages=['it'], settings={
     'DATE_ORDER': 'DMY'
@@ -26,6 +50,46 @@ def parse_date(s: str):
     if data:
         return data['date_obj']
     return None
+
+
+def normalize_phones(df: pd.DataFrame) -> pd.DataFrame:
+    df['da_numero'] = df['da_numero'].apply(map_phone)
+    df['a_numero'] = df['a_numero'].apply(map_phone)
+    return df
+
+
+def clean_dataframe(df: pd.DataFrame) -> pd.DataFrame:
+    df = df.reset_index()
+    df = df[df['data_ora'].notnull() & df['durata'].notnull(
+    ) & df['da_numero'].notnull() & df['a_numero'].notnull()]
+    df.replace({
+        np.nan: None
+    })
+    df = df[
+        [
+            'data_ora',
+            'durata',
+            'tipo',
+            'da_torre_cell_inizio',
+            'da_torre_cell_fine',
+            'da_cgi_inizio',
+            'da_cgi_fine',
+            'da_numero',
+            'da_imei',
+            'da_imsi',
+            'a_torre_cell_inizio',
+            'a_torre_cell_fine',
+            'a_cgi_inizio',
+            'a_cgi_fine',
+            'a_numero',
+            'a_imei',
+            'a_imsi',
+            'operatore',
+            'nome_file_importato',
+            'esito_chiamata',
+        ]
+    ]
+    return df
 
 
 def clean_files(path: str, patterns: List[str], f: Optional[Callable[[str], bool]] = None) -> None:
@@ -61,6 +125,8 @@ def cleandirs(path: str) -> None:
 
 def clean():
     clean_files('data', [
+        r'.*\.pdf',
+        r'.*\.asc',
         # xxtab_tim
         r'{}/coverletter.pdf'.format(xxtab_tim_prefix),
         r'{}/Report[0-9_]+AnagraficaSemplice.*.(pdf|txt)'.format(
@@ -207,23 +273,30 @@ def load_xxtab_tim():
         if pattern.search(filepath):
             csvs = detect_csvs(filepath, separator=';', fun=_match)
             if len(csvs) > 0:
-                df = pd.read_csv(io.StringIO(csvs[0]), sep=';')  # type: ignore
+                df = pd.read_csv(io.StringIO(
+                    csvs[0]), sep=';', dtype=str)  # type: ignore
                 df['nome_file_importato'] = filepath  # type: ignore
                 dfs.append(df)  # type: ignore
     df = dfs[0]
     for i in range(1, len(dfs)):
         df = pd.concat([df, dfs[i]], axis=0)
 
-    df = df[
-        (df['DATA'] != '') & (df['ORA'] != '') &
-        (df['Telefono Chte'] != '') & (df['Telefono Chto'] != '')
-    ]
+    df = df.rename(columns={
+        'CGI/ECGI/LocNumber': 'da_cgi_inizio',
+        'CGI end': 'da_cgi_fine',
+        'Telefono Chte': 'da_numero',
+        'Imei Chte': 'da_imei',
+        'Imsi Chte': 'da_imsi',
+        'Telefono Chto': 'a_numero',
+        'Imei Chto': 'a_imei',
+        'Imsi Chto': 'a_imsi',
+    })
 
-    df['data_ora'] = df['DATA'] + ' ' + df['ORA']
+    df['data_ora'] = (df['DATA'] + ' ' + df['ORA']).apply(parse_date)
     del df['DATA']
     del df['ORA']
 
-    df['durata'] = df['Durata']
+    df['durata'] = df['Durata'].astype(int)
     del df['Durata']
 
     def _map_tipo(e: str) -> str:
@@ -296,67 +369,23 @@ def load_xxtab_tim():
 
     df['da_torre_cell_fine'] = ''
 
-    df['da_cgi_inizio'] = df['CGI/ECGI/LocNumber']
-    del df['CGI/ECGI/LocNumber']
-
-    df['da_cgi_fine'] = df['CGI end']
-    del df['CGI end']
-
-    df['da_numero'] = df['Telefono Chte']
-    del df['Telefono Chte']
-
-    df['da_imei'] = df['Imei Chte']
-    del df['Imei Chte']
-
-    df['da_imsi'] = df['Imsi Chte']
-    del df['Imsi Chte']
-
     df['a_torre_cell_inizio'] = ''
 
     df['a_torre_cell_fine'] = ''
 
     df['a_cgi_inizio'] = ''
+
     df['a_cgi_fine'] = ''
-
-    df['a_numero'] = df['Telefono Chto']
-    del df['Telefono Chto']
-
-    df['a_imei'] = df['Imei Chto']
-    del df['Imei Chto']
-
-    df['a_imsi'] = df['Imsi Chto']
-    del df['Imsi Chto']
 
     df['operatore'] = 'TIM'
 
-    df['esito_chiamata'] = ''
+    df['esito_chiamata'] = df['durata'].apply(
+        lambda e: '1' if e == 0 else '0')
 
-    df = df[
-        [
-            'data_ora',
-            'durata',
-            'tipo',
-            'da_torre_cell_inizio',
-            'da_torre_cell_fine',
-            'da_cgi_inizio',
-            'da_cgi_fine',
-            'da_numero',
-            'da_imei',
-            'da_imsi',
-            'a_torre_cell_inizio',
-            'a_torre_cell_fine',
-            'a_cgi_inizio',
-            'a_cgi_fine',
-            'a_numero',
-            'a_imei',
-            'a_imsi',
-            'operatore',
-            'nome_file_importato',
-            'esito_chiamata'
-        ]
-    ]
-
+    df = normalize_phones(df)
+    df = clean_dataframe(df)
     df.to_csv('extracted_data/xxtab_tim.csv', sep=';')
+    return df
 
 
 def load_xxtab_voda():
@@ -367,7 +396,7 @@ def load_xxtab_voda():
     for filepath in list_files('data'):
         if pattern.search(filepath):
             with open(filepath, 'r') as f:
-                lines = []
+                lines: List[str] = []
                 colspecs = []
                 while True:
                     line = f.readline()
@@ -394,8 +423,18 @@ def load_xxtab_voda():
                             else:
                                 spaces = spaces + 1
                         colspecs.append((start, len(line)))
-                data = ''.join(lines)
-                dataframe = pd.read_fwf(io.StringIO(data), colspecs=colspecs)
+                for i in range(len(lines)):
+                    line = lines[i]
+                    items = []
+                    for cs in colspecs:
+                        (start, end) = cs
+                        items.append(line[start:end].strip().replace('|', ''))
+                    lines[i] = '|'.join(items)
+                if len(lines) <= 1:
+                    continue
+                data = '\n'.join(lines)
+                dataframe = pd.read_csv(io.StringIO(
+                    data), sep='|', dtype=str)  # type: ignore
                 dataframe['nome_file_importato'] = filepath
                 if df is None:
                     df = dataframe
@@ -410,8 +449,12 @@ def load_xxtab_voda():
     del df['Data Fine']
 
     df['data_ora'] = df['Data e Ora Inizio']
-    df['durata'] = (df['Data e Ora Fine'] - df['Data e Ora Inizio']
-                    ).apply(lambda e: e.total_seconds())
+    df['durata'] = pd.to_numeric(
+        (
+            df['Data e Ora Fine'] - df['Data e Ora Inizio']
+        ).apply(lambda e: e.total_seconds()),
+        downcast='integer',
+    )
     del df['Data e Ora Inizio']
     del df['Data e Ora Fine']
 
@@ -483,18 +526,31 @@ def load_xxtab_voda():
 
     df['da_torre_cell_fine'] = ''
 
-    df['da_cgi_inizio'] = df['LAI-CI, Zona-Cella'].apply(
-        lambda e: ''.join(e.split()[0:3]))
+    def _map(x: pd.Series):
+        cella = x['LAI-CI, Zona-Cella']
+        if not pd.isnull(cella) and isinstance(cella, str) and cella.count('-') >= 2:
+            split = cella.split('-')
+            x['da_cgi_inizio'] = '-'.join(split[0:2])
+            x['da_torre_cell_inizio'] = '-'.join(split[2:])
+        else:
+            x['da_torre_cell_inizio'] = cella
+        uca = x['UCA']
+        if uca == 'U1':
+            x['esito_chiamata'] = '0'
+        elif uca in ['U2', 'U3']:
+            x['esito_chiamata'] = '1'
+        else:
+            if x['durata'] == 0:
+                x['esito_chiamata'] = '1'
+            else:
+                x['esito_chiamata'] = '0'
+        return x
+    df = df.apply(_map, axis=1)
 
     df['da_cgi_fine'] = ''
 
-    df['da_numero'] = df['Chiamante']
-    del df['Chiamante']
-
     df['IMEI'] = df['IMEI'].combine_first(df['IMEI/SERIAL'])
     del df['IMEI/SERIAL']
-    df['da_imei'] = df['IMEI']
-    del df['IMEI']
 
     df['da_imsi'] = df['IMSI']
     del df['IMSI']
@@ -504,10 +560,8 @@ def load_xxtab_voda():
     df['a_torre_cell_fine'] = ''
 
     df['a_cgi_inizio'] = ''
-    df['a_cgi_fine'] = ''
 
-    df['a_numero'] = df['Chiamato']
-    del df['Chiamato']
+    df['a_cgi_fine'] = ''
 
     df['a_imei'] = ''
 
@@ -515,14 +569,14 @@ def load_xxtab_voda():
 
     df['operatore'] = 'Vodafone'
 
-    def _map_esito(s: str) -> str:
-        if s == 'U1':
-            return '0'
-        elif s in ['U2', 'U3']:
-            return '1'
-        return ''
-    df['esito_chiamata'] = df['UCA'].apply(_map_esito)
-
+    df = df.rename(columns={
+        'Chiamante': 'da_numero',
+        'IMEI': 'da_imei',
+        'IMSI': 'da_imsi',
+        'Chiamato': 'a_numero',
+    })
+    df = normalize_phones(df)
+    df = clean_dataframe(df)
     df = df[
         [
             'data_ora',
@@ -547,7 +601,8 @@ def load_xxtab_voda():
             'esito_chiamata'
         ]
     ]
-    # df.to_csv('extracted_data/xxtab_voda.csv', sep=';')
+    df.to_csv('extracted_data/xxtab_voda.csv', sep=';')
+    return df
 
 
 def load_xxtab_wind():
@@ -560,7 +615,8 @@ def load_xxtab_wind():
         'Imei': str,
         'IMEI': str,
         'Chiamante': str,
-        'Chiamato': str
+        'Chiamato': str,
+        'Durata': str,
     }
     df: Optional[pd.DataFrame] = None
     for filepath in list_files('data'):
@@ -705,11 +761,8 @@ def load_xxtab_wind():
     )
     del df['Cella Destinatario']
 
-    df['data_ora'] = df['Data'].astype(str).apply(parse_date)
+    df['data_ora'] = df['Data'].astype(str)
     del df['Data']
-
-    df['durata'] = df['Durata Sec']
-    del df['Durata Sec']
 
     ins = [
         'MTC',
@@ -803,16 +856,10 @@ def load_xxtab_wind():
             for value in mappings[key]:
                 if value == e:
                     return key
-        return np.nan
+        return None
 
     df['tipo'] = df['Tipo'].astype(str).apply(_map_tipo)
     df = df[df['tipo'].notna()]
-
-    df['da_torre_cell_inizio'] = df['Cella inizio']
-    del df['Cella inizio']
-
-    df['da_torre_cell_fine'] = df['Cella fine']
-    del df['Cella fine']
 
     df['da_cgi_inizio'] = ''
 
@@ -821,27 +868,28 @@ def load_xxtab_wind():
     df['da_numero'] = df['Chiamante']
     del df['Chiamante']
 
-    def _map_in_out(x: pd.Series):
+    def _map(x: pd.Series):
         if x['Tipo'] in outs:
             x['da_imei'] = x['Imei']
             x['da_imsi'] = x['Imsi']
-            x['a_imei'] = np.nan
-            x['a_imsi'] = np.nan
+            x['da_torre_cell_inizio'] = x['Cella inizio']
+            x['da_torre_cell_fine'] = x['Cella fine']
+            x['a_imei'] = None
+            x['a_imsi'] = None
         elif x['Tipo'] in ins:
-            x['da_imei'] = np.nan
-            x['da_imsi'] = np.nan
+            x['da_imei'] = None
+            x['da_imsi'] = None
             x['a_imei'] = x['Imei']
             x['a_imsi'] = x['Imsi']
+            x['a_torre_cell_inizio'] = x['Cella inizio']
+            x['a_torre_cell_fine'] = x['Cella fine']
         else:
             raise Exception(x['Tipo'])
         x['esito_chiamata'] = '1' if x['Tipo'] in fails else '0'
+        x['durata'] = 0 if x['tipo'] in ['D', 'S'] else int(x['Durata Sec'])
         return x
-    df = df.apply(_map_in_out, axis=1)
+    df = df.apply(_map, axis=1)
     del df['Tipo']
-
-    df['a_torre_cell_inizio'] = ''
-
-    df['a_torre_cell_fine'] = ''
 
     df['a_cgi_inizio'] = ''
     df['a_cgi_fine'] = ''
@@ -851,6 +899,8 @@ def load_xxtab_wind():
 
     df['operatore'] = 'WindTre'
 
+    df = normalize_phones(df)
+    df = clean_dataframe(df)
     df = df[
         [
             'data_ora',
@@ -948,6 +998,10 @@ def load_xxtab_sparkle():
     df['a_cgi_fine'] = ''
     df['operatore'] = 'Sparkle'
     df['esito_chiamata'] = df['durata'].apply(lambda e: 1 if e == '0' else 0)
+
+    df = normalize_phones(df)
+    df = clean_dataframe(df)
+
     df = df[
         [
             'data_ora',
@@ -1032,6 +1086,8 @@ def load_f8xx_bt_italia():
     df['a_imsi'] = ''
     df['operatore'] = 'BT Italia'
 
+    df = normalize_phones(df)
+    df = clean_dataframe(df)
     df = df[
         [
             'data_ora',
@@ -1105,13 +1161,15 @@ def load_f8xx_iliad():
         'chiamato': 'a_numero'
     })
 
-    df['data_ora'] = df['data'] + ' ' + df['ora']
+    df['data_ora'] = (df['data'] + ' ' + df['ora'])
     del df['data']
     del df['ora']
 
     def _map_chiamante(x: pd.Series):
         if x['tipo'] == 'forw' and pd.notnull(x['chiamante_originale']) and x['chiamante_originale'] != '':
             x['da_numero'] = x['chiamante_originale']
+        else:
+            x['da_numero'] = x['chiamante']
         return x
     df = df.apply(_map_chiamante, axis=1)
 
@@ -1160,6 +1218,10 @@ def load_f8xx_iliad():
     df['operatore'] = 'Iliad'
     df['esito_chiamata'] = df['durata'].apply(
         lambda e: '1' if e == '0' else '0')
+
+    df = normalize_phones(df)
+    df = clean_dataframe(df)
+
     df = df[
         [
             'data_ora',
@@ -1188,6 +1250,291 @@ def load_f8xx_iliad():
     return df
 
 
+def load_f8xx_wind():
+    pattern = re.compile(
+        r'{}/.*REP.*UNICO.*.(TXT|txt)'.format(f8xx_wind_prefix)
+    )
+    df: Optional[pd.DataFrame] = None
+
+    last_header = None
+    for filepath in list_files('data'):
+        if pattern.search(filepath):
+            with open(filepath, 'r') as f:
+                lines = []
+                if last_header:
+                    lines.append(last_header)
+                while True:
+                    line = f.readline()
+                    if not line:
+                        break
+                    if line.strip() == '':
+                        continue
+                    if 'DATA' in line and 'ORA' in line and '|' in line:
+                        if len(lines) > 1:
+                            data = ''.join(lines)
+                            dataframe: pd.DataFrame = pd.read_csv(
+                                io.StringIO(data),
+                                sep='|',
+                                dtype=str,
+                            )  # type: ignore
+                            dataframe['nome_file_importato'] = filepath
+                            if df is None:
+                                df = dataframe
+                            else:
+                                df = pd.concat([df, dataframe])
+                        lines = []
+                        last_header = line
+                        lines.append(line)
+                    elif len(lines) > 0:
+                        if line.count('|') == lines[0].count('|'):
+                            lines.append(line)
+                if len(lines) <= 1:
+                    continue
+                data = ''.join(lines)
+                dataframe: pd.DataFrame = pd.read_csv(
+                    io.StringIO(data),
+                    sep='|',
+                    dtype=str,
+                )  # type: ignore
+                dataframe['nome_file_importato'] = filepath
+                if df is None:
+                    df = dataframe
+                else:
+                    df = pd.concat([df, dataframe])
+
+    df['DATA'] = df['DATA'].combine_first(df['DATA CONVERSAZIONE'])
+    del df['DATA CONVERSAZIONE']
+    df['ORA'] = df['ORA'].combine_first(df['ORA CONVERSAZIONE'])
+    df['data_ora'] = df['DATA'] + ' ' + df['ORA']
+    del df['DATA']
+    del df['ORA']
+    del df['ORA CONVERSAZIONE']
+    df['data_ora'] = df['data_ora'].apply(parse_date)
+    df = df[df['data_ora'].notnull()]
+
+    df['TELEFONO CHIAMATO'] = df['TELEFONO CHIAMATO'].combine_first(
+        df['TELEFONO_CHIAMATO'])
+    df = df[df['TELEFONO CHIAMATO'].notnull()]
+    del df['TELEFONO_CHIAMATO']
+
+    df = df[df['TELEFONO CHIAMANTE'].notnull()]
+
+    df['DURATA'] = df['DURATA'].combine_first(df['DURATA CONVERSAZIONE'])
+    del df['DURATA CONVERSAZIONE']
+
+    def _map_durata(d):
+        if isinstance(d, str):
+            match = re.match(r'(\d\d):(\d\d):(\d\d)', d)
+            if not match:
+                return None
+            return int(int(match[1]) * 3600 + int(match[2]) * 60 + int(match[3]))
+        return None
+    df['durata'] = df['DURATA'].apply(_map_durata)
+    del df['DURATA']
+    df = df[df['durata'].notnull()]
+    df['durata'] = df['durata'].astype(int)
+
+    df['da_imsi'] = df['IMSI'].combine_first(df['IMSI CHIAMANTE'])
+    del df['IMSI']
+    del df['IMSI CHIAMANTE']
+
+    df['da_imei'] = df['IMEI'].combine_first(df['IMEI CTE/S.N.'])
+    del df['IMEI']
+    del df['IMEI CTE/S.N.']
+
+    df['da_cgi_inizio'] = df['CELLA MOBILE ORIGINE'].combine_first(
+        df['CELLA INIZIO'])
+    del df['CELLA MOBILE ORIGINE']
+    del df['CELLA INIZIO']
+
+    df['da_cgi_fine'] = df['CELLA MOBILE DESTINAZIONE'].combine_first(
+        df['CELLA FINE'])
+    del df['CELLA MOBILE DESTINAZIONE']
+    del df['CELLA FINE']
+
+    df['a_cgi_inizio'] = ''
+    df['a_cgi_fine'] = ''
+
+    df['CELLA MOBILE ORIGINE COMUNE'] = df['CELLA MOBILE ORIGINE COMUNE'].combine_first(
+        df['COMUNE CELLA INIZIO'])
+    del df['COMUNE CELLA INIZIO']
+    df['da_torre_cell_inizio'] = df['INDIRIZZO CELLA INIZIO'].replace(
+        {np.nan: ''}) + ' ' + df['CELLA MOBILE ORIGINE COMUNE'].replace({np.nan: ''})
+    del df['CELLA MOBILE ORIGINE COMUNE']
+    del df['INDIRIZZO CELLA INIZIO']
+    df['da_torre_cell_inizio'] = df['da_torre_cell_inizio'].apply(
+        lambda e: e.strip())
+
+    df['da_torre_cell_fine'] = df['INDIRIZZO CELLA FINE'].replace(
+        {np.nan: ''}) + ' ' + df['COMUNE CELLA FINE'].replace({np.nan: ''})
+    del df['COMUNE CELLA FINE']
+    del df['INDIRIZZO CELLA FINE']
+    df['da_torre_cell_fine'] = df['da_torre_cell_fine'].apply(
+        lambda e: e.strip())
+
+    df['a_torre_cell_inizio'] = ''
+    df['a_torre_cell_fine'] = ''
+
+    del df['INPUT KB']
+    del df['OUTPUT KB']
+    del df['Unnamed: 25']
+    del df['USERNAME/NICKNAME']
+    del df['Unnamed: 26']
+    del df['IP CHIAMANTE']
+    del df['IP PRIVATO ASSEGNATO']
+    del df['CALL ID']
+    del df['CONSOLIDATION']
+    del df['ALIAS']
+    del df['NETWORK CALL REFERENCE']
+    del df['CELLA MOBILE ORIGINE SHORT NAME']
+    del df['CELLA MOBILE DESTINAZIONE SHORT NAME']
+    del df['CARRIER SELECTION']
+    del df['CODICE CENTRALE']
+    del df['OPERAZIONE']
+    del df['MITTENTE/NICKNAME']
+    del df['DESTINATARIO/NICKNAME']
+    del df['CELLA MOBILE DESTINAZIONE COMUNE']
+
+    df = df.rename(columns={
+        'TELEFONO CHIAMANTE': 'da_numero',
+        'TELEFONO CHIAMATO': 'a_numero',
+        'IMSI CHIAMATO': 'a_imsi',
+        'IMEI CHIAMATO': 'a_imei',
+    })  # type: ignore
+    missing = []
+
+    def _map_tipo(e: str) -> Optional[str]:
+        mappings = {
+            'S': [
+            ],
+            'F': [
+            ],
+            'V': [
+                'ALCATEL-DBI',
+                'ALCATEL-DBS',
+                'ALCATEL-DBT',
+                'ALCATEL-DBS-CSR',
+                'ALCATEL-DBT-CSR',
+                'IMSSF-EC',
+                'IMSSF-FCI',
+                'MMPS-OV',
+                'MMPS-TV',
+                'MMPS-OV-CSR',
+                'MMPS-TV-CSR',
+                'MOC',
+                'MSC-CF RI-CSR',
+                'MSC-MO',
+                'MSC-MO RI',
+                'MSC-MO RI-CSR',
+                'MSC-MO',
+                'MSC-MO RI',
+                'MSC-MO RI-CSR',
+                'MSC-MO-CSR',
+                'MSC-MT',
+                'MSC-MT-CSR',
+                'MSC-RCF',
+                'MSC-TR',
+                'MSC-TR RI-CSR',
+                'MSC-TR RI',
+                'MSC-TR-CSR',
+                'MTC',
+                'RCFW',
+                'SCP-MOC',
+                'TAP-MO*',
+                'TAP-MOC',
+                'TAP-MT*',
+                'TAP-MTC',
+                'UCA/MOC-1',
+                'UCA/MOC-1',
+                'UCA/MOC-2',
+                'UCA/MTC',
+                'UCA/MTC',
+                'UCA/RCFW-1',
+                'UCA/RCFW-2',
+                'GPRS-GGSN',
+                'GSM CAMEL',
+            ],
+            'D': [
+                'VOIP-ITZ',
+                'VOIP-SBC',
+                'VOIP-SBC',
+                'VOIP-SBC-CSR',
+            ],
+            'X': [
+                'CF',
+                'CF-1',
+                'UCA/CF-1',
+            ],
+        }
+        for key in mappings:
+            for value in mappings[key]:
+                if value == e:
+                    return key
+        missing.append(e)
+        return None
+    if len(missing) > 0:
+        print(missing)
+        raise Exception('asd')
+    fails = [
+        'ALCATEL-DBS-CSR',
+        'ALCATEL-DBT-CSR',
+        'CF-1',
+        'MMPS-OV-CSR',
+        'MMPS-TV-CSR',
+        'MSC-CF RI-CSR',
+        'MSC-MO RI-CSR',
+        'MSC-MO RI-CSR',
+        'MSC-MO-CSR',
+        'MSC-MT-CSR',
+        'MSC-TR RI-CSR',
+        'MSC-TR-CSR',
+        'UCA/CF-1',
+        'UCA/MOC-1',
+        'UCA/MOC-1',
+        'UCA/MTC',
+        'UCA/MTC',
+        'UCA/RCFW-1',
+        'UCA/RCFW-2',
+        'VOIP-SBC-CSR',
+    ]
+
+    df['tipo'] = df['TIPO RECORD'].apply(_map_tipo)
+    df['esito_chiamata'] = df['TIPO RECORD'].astype(
+        str).apply(lambda e: '1' if e in fails else '0')
+    del df['TIPO RECORD']
+
+    df['operatore'] = 'WindTre'
+
+    df = normalize_phones(df)
+    df = clean_dataframe(df)
+    df = df[
+        [
+            'data_ora',
+            'durata',
+            'tipo',
+            'da_torre_cell_inizio',
+            'da_torre_cell_fine',
+            'da_cgi_inizio',
+            'da_cgi_fine',
+            'da_numero',
+            'da_imei',
+            'da_imsi',
+            'a_torre_cell_inizio',
+            'a_torre_cell_fine',
+            'a_cgi_inizio',
+            'a_cgi_fine',
+            'a_numero',
+            'a_imei',
+            'a_imsi',
+            'operatore',
+            'nome_file_importato',
+            'esito_chiamata'
+        ]
+    ]
+    df.to_csv('extracted_data/f8xx_wind.csv', sep=';')
+    return df
+
+
 def main():
     clean()
     # load_xxtab_tim()
@@ -1195,7 +1542,8 @@ def main():
     # load_xxtab_wind()
     # load_xxtab_sparkle()
     # load_f8xx_bt_italia()
-    load_f8xx_iliad()
+    # load_f8xx_iliad()
+    load_f8xx_wind()
 
 
 if __name__ == "__main__":

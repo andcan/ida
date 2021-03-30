@@ -34,7 +34,7 @@ Parametri:
 * *`graph`: nome del grafo all'interno del quale applicare la mappatura
 * `create(default=false)`: crea il grafo se non esistente
 * `query`: query da con la quale filtrare i dati in input.
-* si applica solo ai file di tipo `xml` e `json`. Permette di specificare il percorse dei dati di interesse all'interno del file.
+* `path`: si applica solo ai file di tipo `xml` e `json`. Permette di specificare il percorse dei dati di interesse all'interno del file.
 
 
 ## Visualizzazione
