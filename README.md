@@ -65,6 +65,56 @@ Sono forniti:
 * Posizionarsi nella cartella `ida/.devcontainer`.
 * commentare la sezione `services.app` in `docker-compose.yaml`
 * Lanciare il comando `docker-compose up -d`
+* Verificare che Janus si avvii correttamente (`docker logs jce-janusgraph`).
+  Se avviato correttamente nel log l'ultima riga conterrà:
+  ```
+  13385 [gremlin-server-boss-1] INFO  org.apache.tinkerpop.gremlin.server.GremlinServer  - Channel started at port 8182.
+  ```
+* Posizionarsi nella root del progetto.
+* Avviare console gremlin `./start_gremlin_console.sh`.
+  Versioni diverse di docker-compose usano regole diverse per dare il nome alla rete virtuale. Nel caso dia errore correggere il parametro network (per vedere le reti virtuali `docker network ls`).
+
+### Creazione grafo e creazione indici
+Per creare il grafo inserire:
+```
+map = new HashMap<String, Object>()
+map.put("storage.backend", "cql")
+map.put("storage.hostname", "jce-cassandra")
+map.put("index.search.backend", "elasticsearch")
+map.put("index.search.hostname", "jce-elastic")
+map.put("index.search.elasticsearch.transport-scheme", "http")
+map.put("graph.graphname", "example")
+ConfiguredGraphFactory.createConfiguration(new MapConfiguration(map))
+```
+Verificare che il grafo esista con `ConfiguredGraphFactory.getGraphNames()`.
+
+La creazione degli indici è la parte più critica. Non vengono creati automaticamente dal programma di mappatura dato che non è possibile verificarne lo stato (esiste la chiamata ma va in timeout anche se gli indici sono stati creati).
+Qualsiasi errore durante questo procedimento porta nella maggior parte delle volte alla corruzione dell'intero db (non solo il grafo corrente). Se dopo il procedimento si verificano errori strani conviene cancellare tutti i servizi (`docker-compose down -v`).  
+Il procedimento è lungo ma non ho trovato un modo migliore per risolvere il problema della corruzione.  
+Può essere utile aumentare il timeout della console gremlin (:remote config timeout 999999999, in millisecondi, non mettere numeri troppo grandi che dà errore).
+Nel caso si verificano timeout durante l'esecuzione di un comando non c'è modo di verificarne il completamento. La maggior parte delle volte i comandi (che scrivono) in timeout corrompe il db.
+
+Esempio di creazione indice:
+```
+mgmt = graph.openManagement()
+
+numero = mgmt.getPropertyKey('numero')
+lbl = mgmt.getPropertyKey('lbl')
+
+mgmt.buildIndex('byLblName', Vertex.class).addKey(numero).addKey(lbl).buildCompositeIndex()
+
+mgmt.commit()
+```
+Note:
+* Committare sempre prima di creare indici `g.tx().commit()` / `g.tx().rollback()`  
+  Notare che Janus crea le transazioni implicitamente (anche in lettura). Spesso occorre annullare le transazioni, per vedere i nuovi dati dalla console.
+  Se rimangono delle transazioni aperte e si aggiungono indici il db si corrompe
+* Non è possibile creare indici sulla `label`. Il software usa la proprietà surrogata `lbl` per poter indicizzare il tipo di nodo
+* Aspettare sempre qualche secondo prima di lanciare buildIndex  
+* `buildIndex` sembra sia sincrono anche se leggendo su internet sembra non lo sia, in ogni caso se i dati sono tanti ci impiega molto prima di terminare. Se va in timeout al 99.99% il db è corrotto
+* Aspettare qualche secondo prima di committare
+* `commit` ha lo stesso difetto di `buildIndex`
+* Se ci si dimentica di committare `mgmt` e se apre un'altro il db si corrompe
 
 ### Per cancellare
 * Posizionarsi nella cartella `ida/.devcontainer`
