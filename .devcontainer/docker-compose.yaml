@@ -52,38 +52,38 @@ services:
     #     limits:
     #       cpus: '2'
     #       memory: '2.5G'
-  
+
   cassandra:
     image: scylladb/scylla:4.2.1
     command: --memory 2048M
-  #   image: cassandra:3
+    #   image: cassandra:3
     container_name: jce-cassandra
     ports:
       # REST API
-      - "10000:10000"
+      - '10000:10000'
       # CQL ports (native_transport_port)
-      - "9042:9042"
+      - '9042:9042'
       # Thrift (rpc_port)
-      - "9160:9160"
+      - '9160:9160'
       # Internode
-      - "7000:7000"
-      - "7001:7001"
+      - '7000:7000'
+      - '7001:7001'
       # JMX
-      - "7199:7199"
+      - '7199:7199'
       # Prometheus monitoring
-      - "9180:9180"
-      - "9100:9100"
-  #     - '9042:9042'
+      - '9180:9180'
+      - '9100:9100'
+    #     - '9042:9042'
     networks:
       - jce-network
-  #   environment:
-  #     HEAP_NEWSIZE: 8192M
-  #     MAX_HEAP_SIZE: 8192M
-  #   healthcheck:
-  #     test: ['CMD-SHELL', '[ $$(nodetool statusgossip) = running ]']
-  #     interval: 30s
-  #     timeout: 10s
-  #     retries: 5
+    #   environment:
+    #     HEAP_NEWSIZE: 8192M
+    #     MAX_HEAP_SIZE: 8192M
+    #   healthcheck:
+    #     test: ['CMD-SHELL', '[ $$(nodetool statusgossip) = running ]']
+    #     interval: 30s
+    #     timeout: 10s
+    #     retries: 5
     volumes:
       - cassandra:/var/lib/db
       # - cassandra:/var/lib/cassandra
@@ -95,28 +95,28 @@ services:
     #     limits:
     #       cpus: '2'
     #       memory: '2.5G'
-  # elasticsearch:
-  #   image: docker.elastic.co/elasticsearch/elasticsearch:6.6.0
-  #   container_name: jce-elastic
-  #   environment:
-  #     - 'ES_JAVA_OPTS=-Xms128m -Xmx1024m'
-  #     - 'http.host=0.0.0.0'
-  #     - 'network.host=0.0.0.0'
-  #     - 'transport.host=127.0.0.1'
-  #     - 'cluster.name=docker-cluster'
-  #     - 'xpack.security.enabled=false'
-  #     - 'discovery.zen.minimum_master_nodes=1'
-  #   ports:
-  #     - '9200:9200'
-  #   networks:
-  #     - jce-network
-  #   volumes:
-  #     - elasticsearch:/usr/share/elasticsearch/data
-  #   # deploy:
-  #   #   resources:
-  #   #     limits:
-  #   #       cpus: '1'
-  #   #       memory: '1G'
+  elasticsearch:
+    image: docker.elastic.co/elasticsearch/elasticsearch:6.6.0
+    container_name: jce-elastic
+    environment:
+      - 'ES_JAVA_OPTS=-Xms128m -Xmx1024m'
+      - 'http.host=0.0.0.0'
+      - 'network.host=0.0.0.0'
+      - 'transport.host=127.0.0.1'
+      - 'cluster.name=docker-cluster'
+      - 'xpack.security.enabled=false'
+      - 'discovery.zen.minimum_master_nodes=1'
+    ports:
+      - '9200:9200'
+    networks:
+      - jce-network
+    volumes:
+      - elasticsearch:/usr/share/elasticsearch/data
+    # deploy:
+    #   resources:
+    #     limits:
+    #       cpus: '1'
+    #       memory: '1G'
   graphexp:
     build:
       context: ..
@@ -137,7 +137,7 @@ services:
   #     - 'GREMLIN_SERVER_URL=ws://jce-janusgraph:8182/gremlin'
   #   ports:
   #     - '8000:8000'
-  #   networks: 
+  #   networks:
   #     - jce-network
   # spark-master:
   #   image: bde2020/spark-master:3.0.1-hadoop3.2
@@ -165,4 +165,4 @@ networks:
 volumes:
   janusgraph-default-data:
   cassandra:
-  # elasticsearch:
+  elasticsearch:
