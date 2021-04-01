@@ -21,7 +21,7 @@ phone_regex = re.compile(r'((\d{2}|\+)?\d{2})?(\d[ -]*){3,10}')
 
 
 ddp = dateparser.DateDataParser(languages=['it'], settings={
-    'DATE_ORDER': 'YMD'
+    'DATE_ORDER': 'DMY'
 })
 
 
