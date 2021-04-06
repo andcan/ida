@@ -9,4 +9,4 @@ EOF
 docker run --rm -it \
   -e GREMLIN_REMOTE_HOSTS=jce-janusgraph \
   --network ida_devcontainer_jce-network \
-  janusgraph/janusgraph bash -c "echo -e '$init_script' > init.groovy && ./bin/gremlin.sh -i init.groovy"
+  janusgraph/janusgraph:0.5.2 bash -c "echo -e '$init_script' > init.groovy && ./bin/gremlin.sh -i init.groovy"

@@ -1,0 +1,77 @@
+name: Persona
+label: Persona
+keys: []
+properties:
+- name: dataora
+  source: data_ora
+  merge_behavior: merge_if_not_present
+  kind: datetime
+  format: phone
+- name: durata
+  source: durata
+  merge_behavior: merge_if_not_present
+  kind: null
+  format: null
+- name: tipo
+  source: tipo
+  merge_behavior: merge_if_not_present
+  kind: null
+  format: null
+- name: dacgiinizio
+  source: da_cgi_inizio
+  merge_behavior: merge_if_not_present
+  kind: null
+  format: null
+- name: dacgifine
+  source: da_cgi_fine
+  merge_behavior: merge_if_not_present
+  kind: null
+  format: null
+- name: danumero
+  source: da_numero
+  merge_behavior: merge_if_not_present
+  kind: str
+  format: phone
+- name: daimei
+  source: da_imei
+  merge_behavior: merge_if_not_present
+  kind: null
+  format: null
+- name: daimsi
+  source: da_imsi
+  merge_behavior: merge_if_not_present
+  kind: null
+  format: null
+- name: anumero
+  source: a_numero
+  merge_behavior: merge_if_not_present
+  kind: str
+  format: phone
+- name: aimei
+  source: a_imei
+  merge_behavior: merge_if_not_present
+  kind: null
+  format: null
+- name: aimsi
+  source: a_imsi
+  merge_behavior: merge_if_not_present
+  kind: null
+  format: null
+- name: operatore
+  source: operatore
+  merge_behavior: merge_if_not_present
+  kind: null
+  format: null
+- name: nomefileimportato
+  source: nome_file_importato
+  merge_behavior: merge_if_not_present
+  kind: str
+  format: phone
+- name: esitochiamata
+  source: esito_chiamata
+  merge_behavior: merge_if_not_present
+  kind: null
+  format: null
+edge_keys: []
+edge_properties: []
+relations: []

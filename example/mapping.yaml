@@ -19,6 +19,7 @@ relations:
   - name: daTorreCellFine
   - name: aTorreCellInizio
   - name: aTorreCellFine
+  - name: esitoChiamata
   edge_keys:
   - name: dataOra
   - name: durata
@@ -95,5 +96,9 @@ properties:
   source: a_cgi_fine
   merge_behavior: merge_if_not_present
   kind: str
+- name: esitoChiamata
+  source: esito_chiamata
+  merge_behavior: merge_if_not_present
+  kind: bool
   
 
