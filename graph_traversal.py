@@ -16,6 +16,7 @@ from util import format_query
 import math
 import time
 from tqdm import tqdm
+import phonenumbers
 
 ErrKeyMappingNoCorrespondingPropertyMapping = 'ErrKeyMappingNoCorrespondingPropertyMapping'
 
@@ -164,7 +165,7 @@ class GraphTraversal(object):
                 ),
                 mapping.key_properties(),
                 q.V().has('lbl', mapping.label)
-            # alias node usign ref
+                # alias node usign ref
             ).as_(ref)
         else:
             # reconstruct references of previous iteration
@@ -173,7 +174,7 @@ class GraphTraversal(object):
         for relation in mapping.relations:
             # generate node reference for current relation
             rel_ref = '{}_{}'.format(depth, relation.name)
-            # search node by relations's key properties 
+            # search node by relations's key properties
             q = reduce(
                 lambda q, property_mapping: q.has(
                     property_mapping.name,
@@ -411,20 +412,38 @@ class GraphTraversal(object):
                     np.float64)  # type: ignore
             elif property.kind == 'datetime':
                 df[property.source] = df[property.source].map(parse_date)
+            elif property.kind == 'bool':
+                def _parseBool(b):
+                    if isinstance(b, bool):
+                        return b
+                    elif isinstance(b, int) or isinstance(b, float):
+                        return b != 0
+                    elif isinstance(b, str):
+                        return b != '0'
+                df[property.source] = df[property.source].apply(_parseBool)
 
             if property.format == 'phone':
                 def _map_phone(phone: str) -> str:
-                    match = phone_regex.search(phone)
-                    if match is None:
+                    # match = phone_regex.search(phone)
+                    try:
+                        n = phonenumbers.parse(
+                            phone, None if phone.startswith('+') else 'IT')
+                        if not phonenumbers.is_possible_number(n):
+                            return ''
+                        return phonenumbers.format_number(n, phonenumbers.PhoneNumberFormat.E164)
+                    except:
                         return ''
-                    v = match.group(0).replace(' ', '').replace('-', '')
-                    if len(v) == 10:
-                        return "+39" + v
-                    elif v.startswith('39'):
-                        return "+" + v
-                    return v
+                    # if match is None:
+                    #     return ''
+                    # v = match.group(0).replace(' ', '').replace('-', '')
+                    # if len(v) == 10:
+                    #     return "+39" + v
+                    # elif v.startswith('39'):
+                    #     return "+" + v
+                    # return v
                 df[property.source] = df[property.source].map(_map_phone)
                 df = df[df[property.source] != '']
+
         data = df.to_dict('records')
         for element in data:
             # delete keys with null values
@@ -466,6 +485,7 @@ class GraphTraversal(object):
         #         # print(format_query(q))
         #         raise
         #     i = i + 1
+
         def _mapping_max_depth(mapping: Mapping) -> int:
             if not mapping.relations:
                 return 1

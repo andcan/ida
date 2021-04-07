@@ -17,7 +17,7 @@ preferred_case_match_source = 'preferred_case_match_source'
 preferred_case_snake_case = 'preferred_case_snake_case'
 preferred_case_camel_case = 'preferred_case_camel_case'
 
-phone_regex = re.compile(r'((\d{2}|\+)?\d{2})?(\d[ -]*){3,10}')
+phone_regex = re.compile(r'((\d{2}|\+)?\d{2})?(\d[ -]*){8,15}')
 
 
 ddp = dateparser.DateDataParser(languages=['it'], settings={
