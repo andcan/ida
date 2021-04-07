@@ -166,14 +166,16 @@ g.tx().commit() // importante! Se non lo faccio rimane la transazione aperta e s
 ```
 Note:
 * Committare sempre prima di creare indici `g.tx().commit()` / `g.tx().rollback()`  
-  Notare che Janus crea le transazioni implicitamente (anche in lettura). Spesso occorre annullare le transazioni, per vedere i nuovi dati dalla console.
-  Se rimangono delle transazioni aperte e si aggiungono indici il db si corrompe
+  Notare che Janus crea le transazioni implicitamente (anche in lettura). Spesso occorre committare le transazioni, per vedere i nuovi dati dalla console.
+  Se rimangono delle transazioni aperte e si aggiungono indici il db si corrompe.
 * Non è possibile creare indici sulla `label`. Il software usa la proprietà surrogata `lbl` per poter indicizzare il tipo di nodo
 * Aspettare sempre qualche secondo prima di lanciare buildIndex  
 * `buildIndex` e `updateIndex` sembra siano sincroni anche se leggendo su internet sembra non lo sia, in ogni caso se i dati sono tanti ci impiega molto prima di terminare. Se va in timeout al 99.99% il db è corrotto
 * Aspettare qualche secondo (o più, dipende dalla macchina che si usa) prima di committare, e prima di eseguire `buildIndex` 
-* Se ci si dimentica di committare `mgmt` e se apre un'altro il db si corrompe
+* `commit` ha lo stesso difetto di `buildIndex`, aspettare qualche secondo.
+* Se ci si dimentica di committare `mgmt` e se apre un'altro il db si corrompe.
 * Per creare un indice bisogna creare un nodo con quelle proprietà (committare dopo l'inserimento). L'indice resta anche dopo che il nodo viene eleminato.
+* Ci sono due tipi di indici, quelli interni e quelli esterni (Elastic). Quelli interni sono più performanti per ricerche esatte (==), mentre quelli esterni sono più performanti per ricerche full text.
 
 La prova che gli indici vengono usati correttamente la si ha dal log di janus. Il messaggio si commenta da solo.
 ```

@@ -1,0 +1,104 @@
+name: Persona
+label: Persona
+keys:
+- name: numero
+relations:
+- name: chiamato
+  label: Persona
+  keys:
+  - numero
+  edge_properties:
+  - name: dataOra
+  - name: durata
+  - name: tipo
+  - name: daCgiInizio
+  - name: daCgiFine
+  - name: aCgiInizio
+  - name: aCgiFine
+  - name: daTorreCellInizio
+  - name: daTorreCellFine
+  - name: aTorreCellInizio
+  - name: aTorreCellFine
+  - name: esitoChiamata
+  edge_keys:
+  - name: dataOra
+  - name: durata
+  properties:
+  - name: numero
+    source: a_numero
+    merge_behavior: merge_if_not_present
+    kind: str
+    format: phone
+  - name: imei
+    source: a_imei
+    merge_behavior: merge_if_not_present
+    kind: str
+  - name: imsi
+    source: a_imsi
+    merge_behavior: merge_if_not_present
+    kind: str    
+properties:
+- name: numero
+  source: da_numero
+  merge_behavior: merge_if_not_present
+  kind: str
+  format: phone
+- name: imei
+  source: da_imei
+  merge_behavior: merge_if_not_present
+  kind: str
+- name: imsi
+  source: da_imsi
+  merge_behavior: merge_if_not_present
+  kind: str
+- name: operatore
+  source: operatore
+  merge_behavior: merge_if_not_present
+  kind: str
+- name: dataOra
+  source: data_ora
+  merge_behavior: merge_if_not_present
+  kind: datetime
+- name: durata
+  source: durata
+  merge_behavior: merge_if_not_present
+  kind: int
+- name: tipo
+  source: tipo
+  merge_behavior: merge_if_not_present
+  kind: str
+- name: daCgiInizio
+  source: da_cgi_inizio
+  merge_behavior: merge_if_not_present
+  kind: str
+- name: daCgiFine
+  source: da_cgi_fine
+  merge_behavior: merge_if_not_present
+  kind: str
+- name: daTorreCellInizio
+  source: da_torre_cell_inizio
+  merge_behavior: merge_if_not_present
+  kind: str
+- name: daTorreCellFine
+  source: da_torre_cell_fine
+  merge_behavior: merge_if_not_present
+  kind: str
+- name: aTorreCellInizio
+  source: a_torre_cell_inizio
+  merge_behavior: merge_if_not_present
+  kind: str
+- name: aCgiInizio
+  source: a_cgi_inizio
+  merge_behavior: merge_if_not_present
+  kind: str
+  format: phone
+- name: aCgiFine
+  source: a_cgi_fine
+  merge_behavior: merge_if_not_present
+  kind: str
+- name: esitoChiamata
+  source: esito_chiamata
+  merge_behavior: merge_if_not_present
+  kind: bool
+  
+
