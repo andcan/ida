@@ -7,16 +7,6 @@ relations:
   label: Persona
   keys:
   - numero
-  # relations:
-  #   - name: chiamante
-  #     label: Persona
-  #     keys: 'numero'
-  #     properties:
-  #     - name: numero
-  #       source: da_numero
-  #       merge_behavior: merge_if_not_present
-  #       kind: str
-  #       format: phone
   edge_properties:
   - name: dataOra
   - name: durata
@@ -29,6 +19,7 @@ relations:
   - name: daTorreCellFine
   - name: aTorreCellInizio
   - name: aTorreCellFine
+  - name: esitoChiamata
   edge_keys:
   - name: dataOra
   - name: durata
@@ -105,5 +96,9 @@ properties:
   source: a_cgi_fine
   merge_behavior: merge_if_not_present
   kind: str
+- name: esitoChiamata
+  source: esito_chiamata
+  merge_behavior: merge_if_not_present
+  kind: bool
   
 
