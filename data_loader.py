@@ -12,6 +12,8 @@ import xmltodict
 import json
 import jsonpath_ng
 import datetime
+from pandas.api.types import is_string_dtype
+from pandas.api.types import is_numeric_dtype
 
 preferred_case_match_source = 'preferred_case_match_source'
 preferred_case_snake_case = 'preferred_case_snake_case'
@@ -43,8 +45,8 @@ def parse_date(s: str):
 
 class DataLoader(object):
 
-    def dataframe_from_csv(self, filename: str) -> pd.DataFrame:
-        return pd.read_csv(filename, delimiter=';', dtype=str)
+    def dataframe_from_csv(self, filename: str, dtype=str) -> pd.DataFrame:
+        return pd.read_csv(filename, delimiter=';', dtype=dtype)
 
     def dataframe_from_xml(self, filename: str, path: str) -> pd.DataFrame:
         with open(filename, 'r') as f:
@@ -66,9 +68,9 @@ class DataLoader(object):
                 d = matches[0].value
             return pd.json_normalize(d)
 
-    def load(self, filename, query: Optional[str] = None, path: Optional[str] = None) -> pd.DataFrame:
+    def load(self, filename, query: Optional[str] = None, path: Optional[str] = None, dtype: Optional[Any] = str) -> pd.DataFrame:
         if filename.endswith('.csv'):
-            df = self.dataframe_from_csv(filename)
+            df = self.dataframe_from_csv(filename, dtype=dtype)
         elif filename.endswith('.xml'):
             if path is None or path == '':
                 raise Exception('path is required')
@@ -179,14 +181,39 @@ class DataLoader(object):
                 kind = 'str'
                 format = 'phone'
 
-            def _match_date(s: Any) -> bool:
-                if not isinstance(s, str):
-                    return False
-                dt = parse_date(s)
-                return dt is not None
-            matches = series.map(_match_date).value_counts(normalize=True)
-            if True in matches and matches[True] >= 0.9:  # type: ignore
-                kind = 'datetime'
+            if not kind:
+                def _match_date(s: Any) -> bool:
+                    if not isinstance(s, str):
+                        return False
+                    dt = parse_date(s)
+                    return dt is not None
+                matches = series.map(_match_date).value_counts(normalize=True)
+                if True in matches and matches[True] >= 0.9:  # type: ignore
+                    kind = 'datetime'
+
+            if is_numeric_dtype(series):
+                kind = str(series.dtype)
+
+            if not kind:
+                try:
+                    if is_string_dtype(series.dtype):
+                        matches = (series.apply(
+                            lambda e: 0 if pd.isnull(e) else e)).astype(int)
+                        counts = matches.value_counts(normalize=True)
+                        if 0 in counts and 1 in counts and counts[0] + counts[1] >= 0.9:
+                            kind = 'int'
+                        else:
+                            print('int')
+                except:
+                    pass
+
+            if not kind:
+                matches = (series.str.isdecimal() == True).value_counts()
+                if True in matches and matches[True] >= 0.9:
+                    kind = 'float'
+
+            if not kind:
+                kind = 'str'
 
             properties.append(
                 PropertyMapping(

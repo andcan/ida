@@ -206,11 +206,8 @@ class GraphTraversal(object):
                 ),
                 mapping.key_properties(),
                 q.V().has('lbl', mapping.label)
-<< << << < HEAD
-                # alias node usign ref
-== == == =
-            # Alias source node usign ref
->>>>>> > d1e024b2c5b7a76d52a88543c6813a198ed118b7
+
+                # Alias source node usign ref
             ).as_(ref)
         else:
             # Reconstruct references of previous call
@@ -220,13 +217,8 @@ class GraphTraversal(object):
             # Generate target node reference for current relation
             rel_ref = '{}_{}'.format(depth, relation.name)
 
-
-<< << << < HEAD
-            # search node by relations's key properties
-== == == =
             # Search target node by relations's key properties and give alias
             # rel_ref
->>>>>> > d1e024b2c5b7a76d52a88543c6813a198ed118b7
             q = reduce(
                 lambda q, property_mapping: q.has(
                     property_mapping.name,
@@ -383,7 +375,7 @@ class GraphTraversal(object):
                 raise Exception('unsupported merge behavior: {}'.format(
                     property_mapping.merge_behavior)
                 )
-        # Generate reference to node, using aggregate because `as` aliases are 
+        # Generate reference to node, using aggregate because `as` aliases are
         # dropped during traversal generated from recursive call.
         mapping_ref = '_{}'.format(mapping.name)
         q = q.aggregate(mapping_ref)
@@ -504,17 +496,7 @@ class GraphTraversal(object):
         for property in _collectProperties(mapping):
             if property.source not in df.columns:
                 continue
-            if property.kind == 'str':
-                df[property.source] = df[property.source].astype('str')
-            elif property.kind == 'int':
-                df[property.source] = df[property.source].astype(
-                    np.int64
-                )
-            elif property.kind == 'float':
-                df[property.source] = df[property.source].astype(
-                    np.float64
-                )
-            elif property.kind == 'datetime':
+            if property.kind == 'datetime':
                 df[property.source] = df[property.source].map(parse_date)
             elif property.kind == 'bool':
                 def _parseBool(b):
@@ -525,6 +507,8 @@ class GraphTraversal(object):
                     elif isinstance(b, str):
                         return b != '0'
                 df[property.source] = df[property.source].apply(_parseBool)
+            else:
+                df[property.source] = df[property.source].astype(property.kind)
 
             if property.format == 'phone':
                 def _map_phone(phone: str) -> str:

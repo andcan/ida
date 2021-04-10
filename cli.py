@@ -162,7 +162,7 @@ class CliMapping(object):
         Generates a mapping with label LABEL for the given GRAPH, using INPUT as source for data.
 
         The default behavior is to map only fields that match properties of LABEL-labeled nodes. 
-        
+
         To change the default behavior and search for all node types you can pass '*' as the label.
 
         A field is considered to match if the Levenshtein edit distance of lowercased and 
@@ -192,7 +192,7 @@ class CliMapping(object):
             inmemory=self.inmemory
         )
         dt = DataLoader()
-        df = dt.load(input, query=query, path=path)
+        df = dt.load(input, query=query, path=path, dtype=None)
         schema = gt.schema()
         if label == '*':
             mappings = dt.generate_mappings(
