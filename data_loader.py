@@ -32,16 +32,6 @@ def parse_date(s: str):
         return data['date_obj']
     return None
 
-# def parse_date(s: str) -> Optional[datetime.datetime]:
-#     # try:
-#     #     datetime.datetime.strptime(date_text, '%Y-%m-%d %H:%M:%s')
-#     # except ValueError:
-#     #     raise ValueError("Incorrect data format, should be YYYY-MM-DD")
-#     return dateparser.parse(s, languages=['it'], settings={
-#         'DATE_ORDER': 'YMD'
-#     })
-
-
 class DataLoader(object):
 
     def dataframe_from_csv(self, filename: str, dtype=str) -> pd.DataFrame:
