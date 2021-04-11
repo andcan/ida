@@ -191,8 +191,9 @@ class DataLoader(object):
                 if True in matches and matches[True] >= 0.9:  # type: ignore
                     kind = 'datetime'
 
-            if is_numeric_dtype(series):
-                kind = str(series.dtype)
+            if not kind:
+                if is_numeric_dtype(series):
+                    kind = str(series.dtype)
 
             if not kind:
                 try:
