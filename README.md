@@ -158,10 +158,20 @@ mgmt.updateIndex(mgmt.getGraphIndex('byLblAndNumber'), SchemaAction.REINDEX).get
 mgmt.commit()
 
 
+// se updateIndex non funziona controllare anche le istanze aperte del management e chiuderle
+mgmt = graph.openManagement()
+mgmt.getOpenInstances()
+==>0934f2eb69223-xxxxxxxxxxxxxx
+==>0729845962091-yyyyyyyyyyyyyy(current)
+mgmt.forceCloseInstance('0934f2eb69223-xxxxxxxxxxxxxx') 
+mgmt.commit()
+
 // ora posso cancellare il nodo superfluo
 g.V().drop().iterate()
 g.tx().commit() // importante! Se non lo faccio rimane la transazione aperta e se faccio un'importazione sarà rallentata di molto
 // committando questa transazione dopo parecchi inserimenti impiega molto, di conseguenza timeout e corruzione
+
+
 
 ```
 Note:
@@ -345,3 +355,29 @@ Per ogni comando vengono mostrate due barre di progresso. La prima indica il pro
 ### Per cancellare
 * Posizionarsi nella cartella `ida/.devcontainer`
 * Lanciare il comando `docker-compose down` (`-v` per eliminare anche i volumi)
+
+### Backup e importazione
+L'importazione e l'esportazione avvengono da filesistem. Nel caso JanusGraph sia avviato via container sarà necessario copiare i file con il comando docker.
+
+L'esortazione si fa dalla console gremlin:
+```
+graph.io(IoCore.graphml()).writeGraph("/tmp/tabulati.graphml")
+```
+La copia in locale del file si fa con il comando:
+```
+docker cp jce-janusgraph:/tmp/tabulati.graphml . # jce-janusgraph è il nome assegnato al container di JanusGraph
+```
+La sintassi è simile a quella di scp (copia file con ssh).
+> !! Timeout !!  
+> Dato che è un'operazione che richiede molto tempo può essere utile aumentare il tempo di timeout  modificando la voce `scriptEvaluationTimeout` nel file `.devcontainer/janus/gremlin-server.yaml`. Il valore utilizzato per i tabulati è `300000`
+
+L'importazione si fa con il comando:
+```
+graph.io(IoCore.graphml()).readGraph('/tmp/tabulati.graphml')
+```
+La copia in locale del file nel container si fa con il comando:
+```
+docker cp tabulati.graphml jce-janusgraph:/tmp/tabulati.graphml
+```
+
+In entrambi i casi `graph` fa riferimento all'istanza ottenuta da `ConfiguredGraphFactory.open`

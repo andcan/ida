@@ -16,6 +16,7 @@ from util import format_query
 import math
 import time
 from tqdm import tqdm
+import phonenumbers
 
 ErrKeyMappingNoCorrespondingPropertyMapping = 'ErrKeyMappingNoCorrespondingPropertyMapping'
 
@@ -65,12 +66,12 @@ class GraphTraversal(object):
     ) -> graph_traversal.GraphTraversal:
         """
         Append to q node upsert statements for element using mapping.
-        
-        The query is built by searching node with label mapping.label with 
+
+        The query is built by searching node with label mapping.label with
         properties equal to mapping.key_properties.
         If not found a new node with label mapping.label and properties set to
         element's values selected by mapping.key_properties is inserted.
-        After the node is upserted every property not belonging to key or to 
+        After the node is upserted every property not belonging to key or to
         relations is set using an optional set clause if mapping.merge_behavior
         is merge_if_not_present or setting unconditionally id merge_behavior is
         merge_always.
@@ -89,7 +90,7 @@ class GraphTraversal(object):
         )
         # This is gremlin's pattern to upserting.
         #
-        # Uses coalesce (returns first non null argument) to return either the 
+        # Uses coalesce (returns first non null argument) to return either the
         # found node (first argument) or a new node (second argument).
         # The fold-unfold sequence is used to get a null value if node is not
         # found.
@@ -104,7 +105,7 @@ class GraphTraversal(object):
                 addV(mapping.label).property('lbl', mapping.label),
             )
         )
-        # Iterate record's columns searching for property mappings which apply 
+        # Iterate record's columns searching for property mappings which apply
         # in this context.
         for source_key in element.keys():
             # Get property mapping matching current column by source.
@@ -168,27 +169,27 @@ class GraphTraversal(object):
     ) -> graph_traversal.GraphTraversal:
         """
         Append to q edge upsert statements for element using mapping.
-        
+
         The query is built iterating relations by searching for edges with label
         mapping.relations[i].label wich exit from the node identified by mapping
         and enter into the node identified by mapping.relations[i].
         The found edge must also match mapping.relations[i].edge_keys.
-        
-        If not found a new edge with label mapping.relations[i].label and 
+
+        If not found a new edge with label mapping.relations[i].label and
         properties set to mapping.relations[i].edge_keys is inserted.
         The new edge source node will be the one identified from current
         relation and the target node the one identified by the relation.
 
-        After the edge is upserted every property not belonging to edge_keys in 
-        mapping.relations[i].edge_propertiesis set using an optional set clause 
-        if mapping.merge_behavior is merge_if_not_present or setting 
+        After the edge is upserted every property not belonging to edge_keys in
+        mapping.relations[i].edge_propertiesis set using an optional set clause
+        if mapping.merge_behavior is merge_if_not_present or setting
         unconditionally id merge_behavior is merge_always.
 
         The query is built recursively on mapping.relations and appended to q.
         """
         if parent is None:
             # Make sure mapping's name is not empty.
-            # Tolerates empty name only for root mapping since it doesn't 
+            # Tolerates empty name only for root mapping since it doesn't
             # introduce edges.
             if mapping.name.strip() == '':
                 relation_name = '_root_mapping'
@@ -196,7 +197,7 @@ class GraphTraversal(object):
                 relation_name = mapping.name
             # Generate a reference for later use
             ref = '{}_{}'.format(depth, relation_name)
-            # Search node by mapping's key properies and label (uses surrogate 
+            # Search node by mapping's key properies and label (uses surrogate
             # property lbl)
             q = reduce(
                 lambda q, property_mapping: q.has(
@@ -205,7 +206,8 @@ class GraphTraversal(object):
                 ),
                 mapping.key_properties(),
                 q.V().has('lbl', mapping.label)
-            # Alias source node usign ref
+
+                # Alias source node usign ref
             ).as_(ref)
         else:
             # Reconstruct references of previous call
@@ -214,6 +216,7 @@ class GraphTraversal(object):
         for relation in mapping.relations:
             # Generate target node reference for current relation
             rel_ref = '{}_{}'.format(depth, relation.name)
+
             # Search target node by relations's key properties and give alias
             # rel_ref
             q = reduce(
@@ -227,7 +230,7 @@ class GraphTraversal(object):
             # Search edge matching ref--[relation.name]-->rel_ref and properties
             # matching relation's edge key properties.
             # Insert new edge if not exists and set key properties.
-            # This is the same upsert pattern used for nodes adapted for edges 
+            # This is the same upsert pattern used for nodes adapted for edges
             # (see build_vertex_query).
             edge_keys = mapping.edge_key_properties(relation)
             q = q.select(ref).coalesce(
@@ -257,7 +260,7 @@ class GraphTraversal(object):
                     addE(relation.name).from_(select(ref)).to(rel_ref)
                 )
             )
-            # Iterate record's columns searching for property mappings which apply 
+            # Iterate record's columns searching for property mappings which apply
             # in this context.
             for source_key in element.keys():
                 property_mapping = mapping.property_by_source(source_key)
@@ -372,7 +375,7 @@ class GraphTraversal(object):
                 raise Exception('unsupported merge behavior: {}'.format(
                     property_mapping.merge_behavior)
                 )
-        # Generate reference to node, using aggregate because `as` aliases are 
+        # Generate reference to node, using aggregate because `as` aliases are
         # dropped during traversal generated from recursive call.
         mapping_ref = '_{}'.format(mapping.name)
         q = q.aggregate(mapping_ref)
@@ -493,35 +496,41 @@ class GraphTraversal(object):
         for property in _collectProperties(mapping):
             if property.source not in df.columns:
                 continue
-            if property.kind == 'str':
-                df[property.source] = df[property.source].astype('str')
-            elif property.kind == 'int':
-                df[property.source] = df[property.source].astype(
-                    np.int64
-                )
-            elif property.kind == 'float':
-                df[property.source] = df[property.source].astype(
-                    np.float64
-                )
-            elif property.kind == 'datetime':
+            if property.kind == 'datetime':
                 df[property.source] = df[property.source].map(parse_date)
+            elif property.kind == 'bool':
+                def _parseBool(b):
+                    if isinstance(b, bool):
+                        return b
+                    elif isinstance(b, int) or isinstance(b, float):
+                        return b != 0
+                    elif isinstance(b, str):
+                        return b != '0'
+                df[property.source] = df[property.source].apply(_parseBool)
+            else:
+                df[property.source] = df[property.source].astype(property.kind)
 
             if property.format == 'phone':
                 def _map_phone(phone: str) -> str:
-                    """
-                    Ad-hoc italian phone number normalization
-                    """
-                    match = phone_regex.search(phone)
-                    if match is None:
+                    try:
+                        n = phonenumbers.parse(
+                            phone, None if phone.startswith('+') else 'IT')
+                        if not phonenumbers.is_possible_number(n):
+                            return ''
+                        return phonenumbers.format_number(n, phonenumbers.PhoneNumberFormat.E164)
+                    except:
                         return ''
-                    v = match.group(0).replace(' ', '').replace('-', '')
-                    if len(v) == 10:
-                        return "+39" + v
-                    elif v.startswith('39'):
-                        return "+" + v
-                    return v
+                    # if match is None:
+                    #     return ''
+                    # v = match.group(0).replace(' ', '').replace('-', '')
+                    # if len(v) == 10:
+                    #     return "+39" + v
+                    # elif v.startswith('39'):
+                    #     return "+" + v
+                    # return v
                 df[property.source] = df[property.source].map(_map_phone)
                 df = df[df[property.source] != '']
+
         data = df.to_dict('records')
         for element in data:
             # Delete keys with null values
@@ -562,6 +571,7 @@ class GraphTraversal(object):
         #         # print(format_query(q))
         #         raise
         #     i = i + 1
+
         def _mapping_max_depth(mapping: Mapping) -> int:
             """
             Gremlin uses websockets which have a max frame size, so queries 
