@@ -169,7 +169,6 @@ Note:
   Notare che Janus crea le transazioni implicitamente (anche in lettura). Spesso occorre committare le transazioni, per vedere i nuovi dati dalla console.
   Se rimangono delle transazioni aperte e si aggiungono indici il db si corrompe.
 * Non è possibile creare indici sulla `label`. Il software usa la proprietà surrogata `lbl` per poter indicizzare il tipo di nodo
-* Aspettare sempre qualche secondo prima di lanciare buildIndex  
 * `buildIndex` e `updateIndex` sembra siano sincroni anche se leggendo su internet sembra non lo sia, in ogni caso se i dati sono tanti ci impiega molto prima di terminare. Se va in timeout al 99.99% il db è corrotto
 * Aspettare qualche secondo (o più, dipende dalla macchina che si usa) prima di committare, e prima di eseguire `buildIndex` 
 * `commit` ha lo stesso difetto di `buildIndex`, aspettare qualche secondo.
