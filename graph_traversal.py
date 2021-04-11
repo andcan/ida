@@ -490,47 +490,46 @@ class GraphTraversal(object):
                     ps = ps + _collectProperties(m)
             return ps
 
-        # Use pandas automatic type recognition
-        df = df.convert_dtypes()
-        # Apply properties' type conversions if specified
+        # Apply properties' type conversions
         for property in _collectProperties(mapping):
             if property.source not in df.columns:
-                continue
+                continue # skip, property does not exist
             if property.kind == 'datetime':
                 df[property.source] = df[property.source].map(parse_date)
             elif property.kind == 'bool':
                 def _parseBool(b):
+                    """
+                    Converts boolish values into boolean
+                    """
                     if isinstance(b, bool):
                         return b
                     elif isinstance(b, int) or isinstance(b, float):
                         return b != 0
                     elif isinstance(b, str):
-                        return b != '0'
+                        return b not in ['', 'false', '0']
                 df[property.source] = df[property.source].apply(_parseBool)
             else:
                 df[property.source] = df[property.source].astype(property.kind)
 
             if property.format == 'phone':
                 def _map_phone(phone: str) -> str:
+                    """
+                    Normalizes phone numbers returning an empty string if format is not valid
+                    """
                     try:
+                        # assume italian if number does not start with +
                         n = phonenumbers.parse(
                             phone, None if phone.startswith('+') else 'IT')
                         if not phonenumbers.is_possible_number(n):
                             return ''
-                        return phonenumbers.format_number(n, phonenumbers.PhoneNumberFormat.E164)
+                        return phonenumbers.format_number(n, phonenumbers.PhoneNumberFormat.E164) # return a normalized representation
                     except:
                         return ''
-                    # if match is None:
-                    #     return ''
-                    # v = match.group(0).replace(' ', '').replace('-', '')
-                    # if len(v) == 10:
-                    #     return "+39" + v
-                    # elif v.startswith('39'):
-                    #     return "+" + v
-                    # return v
                 df[property.source] = df[property.source].map(_map_phone)
-                df = df[df[property.source] != '']
-
+                # filter bad phone numbers
+                df = df[df[property.source] != ''] 
+        
+        # transform dataframe into a dictionary
         data = df.to_dict('records')
         for element in data:
             # Delete keys with null values
@@ -540,44 +539,22 @@ class GraphTraversal(object):
                     to_delete.append(key)
                 else:
                     try:
+                        # numpy types are not json-serializable
+                        # workaround to extract a json serializable value
                         f = getattr(element[key], 'item')
                         element[key] = f()
                     except AttributeError:
+                        # not an error do not break
                         pass
             for k in to_delete:
                 del element[k]
-
-        # rows = len(data)
-        # i = 0
-        # last = 0
-        # start = time.time()
-        # for element in data:
-        #     current = int(i/rows*100)
-        #     if current != last:
-        #         timediff = time.time() - start
-        #         print(str(current) + '% (' + str(i) + 'records, + ' +
-        #               str(timediff) + 's)')
-        #         last = current
-        #     q = self.build_vertex_query(
-        #         self._g,  # type: ignore
-        #         mapping,
-        #         element,
-        #     )
-        #     print(format_query(q))
-        #     raise Exception(format_query(q))
-        #     try:
-        #         q.next()
-        #     except:
-        #         # print(format_query(q))
-        #         raise
-        #     i = i + 1
 
         def _mapping_max_depth(mapping: Mapping) -> int:
             """
             Gremlin uses websockets which have a max frame size, so queries 
             can't be of arbitrary size.
             This function calculates the max number of nodes that can be 
-            inserted by as single build_vertex_query() call
+            inserted by a single build_vertex_query() call
             """
             if not mapping.relations:
                 return 1
@@ -586,6 +563,7 @@ class GraphTraversal(object):
         # Tuned to be as big as possible without exceeding the frame size.
         batch_size = 15
         max_depth = _mapping_max_depth(mapping)
+        # max loops before sending query
         loops = math.floor(batch_size / max_depth)
 
         # Batch insert nodes
@@ -606,10 +584,10 @@ class GraphTraversal(object):
         if counter != 0:
             q.next()
 
-        # Batch insert edges
         batch_size = 8
         loops = max(math.floor(batch_size / max_depth), 1)
-
+        
+        # Batch insert edges
         i = 0
         q: graph_traversal.GraphTraversal = self.g
         counter = 0
