@@ -32,10 +32,11 @@ def parse_date(s: str):
         return data['date_obj']
     return None
 
+
 class DataLoader(object):
 
-    def dataframe_from_csv(self, filename: str, dtype=str) -> pd.DataFrame:
-        return pd.read_csv(filename, delimiter=';', dtype=dtype)
+    def dataframe_from_csv(self, filename: str, dtype=str, delimiter=';') -> pd.DataFrame:
+        return pd.read_csv(filename, delimiter=delimiter, dtype=dtype)
 
     def dataframe_from_xml(self, filename: str, path: str) -> pd.DataFrame:
         with open(filename, 'r') as f:
@@ -45,7 +46,7 @@ class DataLoader(object):
             matches = pathexpr.find(d)
             if len(matches) == 0:
                 raise Exception('no matches fot path <{}>'.format(path))
-            return pd.json_normalize(matches[0].value) # flatten data
+            return pd.json_normalize(matches[0].value)  # flatten data
 
     def dataframe_from_json(self, filename: str, path: Optional[str] = None) -> pd.DataFrame:
         with open(filename, 'r') as f:
@@ -58,16 +59,17 @@ class DataLoader(object):
                     # cml 1 rt text="invalid path"
                     raise Exception('no matches fot path <{}>'.format(path))
                 d = matches[0].value
-            return pd.json_normalize(d) # flatten data
+            return pd.json_normalize(d)  # flatten data
 
-    def load(self, filename, query: Optional[str] = None, path: Optional[str] = None, dtype: Optional[Any] = str) -> pd.DataFrame:
+    def load(self, filename, query: Optional[str] = None, path: Optional[str] = None, dtype: Optional[Any] = str, delimiter=';') -> pd.DataFrame:
         """
         Loads filename and applies query if provided.
 
         path parameter is used only for json and xml files, and mandatory for xml.
         """
         if filename.endswith('.csv'):
-            df = self.dataframe_from_csv(filename, dtype=dtype)
+            df = self.dataframe_from_csv(
+                filename, dtype=dtype, delimiter=delimiter)
         elif filename.endswith('.xml'):
             if path is None or path == '':
                 # cml 1 rt text="path is required"
@@ -120,7 +122,7 @@ class DataLoader(object):
             if len(keys) == 0:
                 return []
             if len(properties) == 0:
-                if not map_all: # there is no need to map all
+                if not map_all:  # there is no need to map all
                     return []
                 # return a list containing all remaining keys
                 return list(
@@ -164,7 +166,7 @@ class DataLoader(object):
             node.properties,
             df.columns,
         )
-        # filter out matches that do not satisfy tolerance 
+        # filter out matches that do not satisfy tolerance
         results = list(
             filter(
                 lambda e: e[2] < tolerance * len(e[0].name),

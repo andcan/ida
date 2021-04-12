@@ -18,6 +18,8 @@ import time
 from tqdm import tqdm
 import phonenumbers
 
+pd.options.mode.chained_assignment = None
+
 ErrKeyMappingNoCorrespondingPropertyMapping = 'ErrKeyMappingNoCorrespondingPropertyMapping'
 
 ErrSourceKeyNoCorrespondingPropertyMapping = 'ErrSourceKeyNoCorrespondingPropertyMapping'
@@ -493,7 +495,7 @@ class GraphTraversal(object):
         # Apply properties' type conversions
         for property in _collectProperties(mapping):
             if property.source not in df.columns:
-                continue # skip, property does not exist
+                continue  # skip, property does not exist
             if property.kind == 'datetime':
                 df[property.source] = df[property.source].map(parse_date)
             elif property.kind == 'bool':
@@ -522,13 +524,14 @@ class GraphTraversal(object):
                             phone, None if phone.startswith('+') else 'IT')
                         if not phonenumbers.is_possible_number(n):
                             return ''
-                        return phonenumbers.format_number(n, phonenumbers.PhoneNumberFormat.E164) # return a normalized representation
+                        # return a normalized representation
+                        return phonenumbers.format_number(n, phonenumbers.PhoneNumberFormat.E164)
                     except:
                         return ''
                 df[property.source] = df[property.source].map(_map_phone)
                 # filter bad phone numbers
-                df = df[df[property.source] != ''] 
-        
+                df = df[df[property.source] != '']
+
         # transform dataframe into a dictionary
         data = df.to_dict('records')
         for element in data:
@@ -586,7 +589,7 @@ class GraphTraversal(object):
 
         batch_size = 8
         loops = max(math.floor(batch_size / max_depth), 1)
-        
+
         # Batch insert edges
         i = 0
         q: graph_traversal.GraphTraversal = self.g

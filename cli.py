@@ -133,6 +133,7 @@ class CliMapping(object):
         create: bool = False,
         query: Optional[str] = None,
         path: Optional[str] = None,
+        delimiter: Optional[str] = ';'
     ) -> str:
         gt = init(
             gremlin_url=self.gremlin_url,
@@ -141,7 +142,7 @@ class CliMapping(object):
             inmemory=self.inmemory
         )
         dt = DataLoader()
-        df = dt.load(input, query=query, path=path)
+        df = dt.load(input, query=query, path=path, delimiter=delimiter)
         m = load_mapping(mapping)
         df = df.replace({np.nan: None})
         gt.map_data(m, df)
@@ -157,6 +158,7 @@ class CliMapping(object):
         tolerance: float = 0.5,
         query: Optional[str] = None,
         path: Optional[str] = None,
+        delimiter: Optional[str] = ';'
     ) -> str:
         """
         Generates a mapping with label LABEL for the given GRAPH, using INPUT as source for data.
@@ -192,7 +194,8 @@ class CliMapping(object):
             inmemory=self.inmemory
         )
         dt = DataLoader()
-        df = dt.load(input, query=query, path=path, dtype=None)
+        df = dt.load(input, query=query, path=path,
+                     dtype=None, delimiter=delimiter)
         schema = gt.schema()
         if label == '*':
             mappings = dt.generate_mappings(
