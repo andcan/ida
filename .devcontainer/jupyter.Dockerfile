@@ -1,23 +1,63 @@
-FROM python:3.6
+FROM debian:buster
 
-RUN set -x; \
-    # pin specific versions of Jupyter and Tornado dependency
-    pip install notebook==5.7.10 \
-    pip install tornado==4.5.3 \
-    # install the package
-    pip install graph-notebook \
-    # install and enable the visualization widget
-    && jupyter nbextension install --py --sys-prefix graph_notebook.widgets \
-    && jupyter nbextension enable  --py --sys-prefix graph_notebook.widgets \
-    # copy static html resources
-    && python -m graph_notebook.static_resources.install \
-    && python -m graph_notebook.nbextensions.install \
-    # copy premade starter notebooks
-    && mkdir -p /notebooks \
-    && python -m graph_notebook.notebooks.install --destination /notebooks
+ARG USERNAME=jupyter
 
-EXPOSE 8888
+RUN useradd -s /bin/bash -m $USERNAME
 
-CMD jupyter notebook --ip=0.0.0.0 --port=8888 --allow-root /notebooks
+RUN apt-get update && \
+    DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
+    software-properties-common \
+    && add-apt-repository non-free \
+    && apt-get update \
+    && DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
+    build-essential \
+    curl \
+    git \
+    libarchive-dev \
+    libbz2-dev \
+    libffi-dev \
+    liblzma-dev \
+    libncurses5-dev \
+    libncursesw5-dev \
+    libreadline-dev \
+    libsqlite3-dev \
+    libssl-dev \
+    llvm \
+    make \
+    p7zip-full \
+    tk-dev \
+    unrar \
+    wget \
+    xz-utils \
+    zlib1g-dev \
+    && apt-get autoremove -y && apt-get clean -y && rm -rf /var/lib/apt/lists/*
+
+ENV TINI_VERSION v0.19.0
+ADD https://github.com/krallin/tini/releases/download/${TINI_VERSION}/tini /usr/bin/tini
+RUN chmod +x /usr/bin/tini
+ENTRYPOINT ["/usr/bin/tini", "--"]
+
+USER ${USERNAME}
+
+ENV LC_ALL=C.UTF-8 \
+    LANG=C.UTF-8 \
+    PYENV_SHELL="zsh"
+
+RUN curl -L https://github.com/pyenv/pyenv-installer/raw/master/bin/pyenv-installer | bash
+
+ENV PATH=/home/${USERNAME}/.pyenv/shims:/home/${USERNAME}/.pyenv/bin:$PATH
+
+RUN set -ex; \
+    pyenv install 3.8.6 \
+    && pyenv global 3.8.6 \
+    && pyenv rehash
+
+COPY requirements.txt .
+
+RUN python -m pip install --disable-pip-version-check --no-cache-dir -r requirements.txt
+
+RUN python -m pip install jupyter
+RUN python -m pip install jupyterlab
 
 
+CMD ["python", "-m", "jupyter", "lab", "--port=8888", "--no-browser", "--ip=0.0.0.0"]

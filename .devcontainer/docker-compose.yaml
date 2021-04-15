@@ -160,6 +160,16 @@ services:
   #     - "SPARK_MASTER=spark://spark-master:7077"
   #   networks:
   #     - jce-network
+  jupyter:
+    build:
+      context: ..
+      dockerfile: .devcontainer/jupyter.Dockerfile
+    networks:
+      - jce-network
+    ports:
+      - 8888:8888
+    volumes:
+      - ..:/workspace:ro
 networks:
   jce-network:
 volumes:
